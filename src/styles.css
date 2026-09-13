@@ -1791,8 +1791,12 @@ nav button.active svg {
     font-size: 10px;
     gap: 8px;
   }
+  /* Top and sides only: the bottom is owned by the bar/FAB clearance rule above,
+     and a padding shorthand here would silently wipe it. */
   .content {
-    padding: 27px 20px 15px;
+    padding-top: 27px;
+    padding-left: 20px;
+    padding-right: 20px;
   }
   .demo-banner {
     padding: 8px 20px;
@@ -2115,7 +2119,9 @@ nav button.active svg {
     --paper-scale: 0.44;
   }
   .content {
-    padding: 23px 14px 14px;
+    padding-top: 23px;
+    padding-left: 14px;
+    padding-right: 14px;
   }
   .stat-card {
     padding: 16px 12px;
