@@ -13,6 +13,7 @@ import * as api from "./api";
 import {
   type Customer,
   type Data,
+  type Expense,
   type Invoice,
   type InvoiceInput,
   emptyData,
@@ -86,6 +87,7 @@ export default function App() {
   const [filter, setFilter] = useState("All");
   const [ledgerCustomer, setLedgerCustomer] = useState("");
   const [customerEdit, setCustomerEdit] = useState<Customer | undefined>();
+  const [expenseEdit, setExpenseEdit] = useState<Expense | undefined>();
   const [paymentOpen, setPaymentOpen] = useState(false);
   // Set when "Add customer" is used from inside the invoice form. The customer
   // dialog then stacks on top instead of replacing the invoice dialog, so the
@@ -97,7 +99,10 @@ export default function App() {
   // The pending destructive action, if any. One state for every such action so
   // they all get the same dialog and the same language.
   const [confirming, setConfirming] = useState<
-    { kind: "void"; invoice: Invoice } | { kind: "customer"; customer: Customer } | null
+    | { kind: "void"; invoice: Invoice }
+    | { kind: "customer"; customer: Customer }
+    | { kind: "expense"; expense: Expense }
+    | null
   >(null);
   const [theme, setTheme] = useState<Theme>(readTheme);
   const [sessionEnded, setSessionEnded] = useState(false);
@@ -286,6 +291,34 @@ export default function App() {
       closeModal();
     }
   }
+  /** Exports a CSV and confirms it: a silent download looks like nothing happened. */
+  async function exportCsv(filename: string, rows: unknown[][]) {
+    try {
+      await saveTextFile(filename, toCsv(rows), CSV_MIME);
+      setNotice(
+        isNative() ? "CSV ready to share" : "Exported " + filename,
+      );
+    } catch (e) {
+      setError(errorText(e));
+    }
+  }
+  async function removeExpense(expense: Expense) {
+    const ok = await act(async () => {
+      if (demo)
+        setData((d) => ({
+          ...d,
+          expenses: d.expenses.filter((e) => e.id !== expense.id),
+        }));
+      else {
+        await api.deleteExpense(expense.id);
+        await sync();
+      }
+    }, "Expense deleted");
+    if (ok) {
+      setConfirming(null);
+      closeModal();
+    }
+  }
   // Printing is the deliverable, so a platform that cannot print must say so
   // rather than let the button appear to do nothing.
   async function print(documentName: string) {
@@ -334,6 +367,7 @@ export default function App() {
     setModal(null);
     setSelected(null);
     setCustomerEdit(undefined);
+    setExpenseEdit(undefined);
     setPaymentOpen(false);
     setCustomerOverInvoice(false);
     setError("");
@@ -507,30 +541,26 @@ export default function App() {
                 <button
                   className="btn secondary"
                   onClick={() =>
-                    void saveTextFile(
-                      "opervia-ledger.csv",
-                      toCsv([
-                        [
-                          "Date",
-                          "Reference",
-                          "Details",
-                          "Type",
-                          "Debit MUR",
-                          "Credit MUR",
-                          "Balance MUR",
-                        ],
-                        ...ledgerRows.map((r) => [
-                          r.date,
-                          r.label,
-                          r.detail,
-                          r.type,
-                          r.debit,
-                          r.credit,
-                          r.balance,
-                        ]),
+                    void exportCsv("opervia-ledger.csv", [
+                      [
+                        "Date",
+                        "Reference",
+                        "Details",
+                        "Type",
+                        "Debit MUR",
+                        "Credit MUR",
+                        "Balance MUR",
+                      ],
+                      ...ledgerRows.map((r) => [
+                        r.date,
+                        r.label,
+                        r.detail,
+                        r.type,
+                        r.debit,
+                        r.credit,
+                        r.balance,
                       ]),
-                      CSV_MIME,
-                    )
+                    ])
                   }
                 >
                   <Download size={16} />
@@ -638,7 +668,16 @@ export default function App() {
                 />
               )}
               {page === "Expenses" && (
-                <Expenses expenses={data.expenses} total={expenses} />
+                <Expenses
+                  expenses={data.expenses}
+                  total={expenses}
+                  onOpen={(e) => {
+                    setExpenseEdit(e);
+                    setModal("expense");
+                    setError("");
+                  }}
+                  onExport={(f, r) => void exportCsv(f, r)}
+                />
               )}
               {page === "Settings" && (
                 <BusinessForm
@@ -766,21 +805,34 @@ export default function App() {
         </ModalShell>
       )}
       {modal === "expense" && (
-        <ModalShell title="Record an expense" onClose={closeModal}>
+        <ModalShell
+          title={expenseEdit ? "Edit this expense" : "Record an expense"}
+          suspended={!!confirming}
+          onClose={closeModal}
+        >
           <ExpenseForm
+            expense={expenseEdit}
             busy={busy}
+            onDelete={
+              expenseEdit
+                ? () => setConfirming({ kind: "expense", expense: expenseEdit })
+                : undefined
+            }
             onSave={async (expense) => {
               const ok = await act(async () => {
                 if (demo)
                   setData((d) => ({
                     ...d,
-                    expenses: [...d.expenses, expense],
+                    expenses: [
+                      ...d.expenses.filter((x) => x.id !== expense.id),
+                      expense,
+                    ],
                   }));
                 else {
                   await api.saveExpense(expense);
                   await sync();
                 }
-              }, "Expense recorded");
+              }, expenseEdit ? "Expense updated" : "Expense recorded");
               if (ok) closeModal();
             }}
           />
@@ -1040,6 +1092,37 @@ export default function App() {
             )
           }
           onConfirm={() => void voidInvoice(confirming.invoice)}
+          onCancel={() => {
+            setConfirming(null);
+            setError("");
+          }}
+        />
+      )}
+      {confirming?.kind === "expense" && (
+        <ConfirmDialog
+          title="Delete this expense?"
+          intro={
+            <>
+              This removes <b>{confirming.expense.description}</b> for{" "}
+              <b>{money(confirming.expense.amount)}</b> on{" "}
+              {dateLabel(confirming.expense.date)}.
+            </>
+          }
+          detail="Expenses are your own record, so this affects nothing a customer holds. It cannot be undone."
+          confirmLabel="Delete expense"
+          busy={busy}
+          error={
+            error && (
+              <WriteError
+                error={error}
+                canRetry={canRetry}
+                busy={busy}
+                onRetry={retryWrite}
+                safe="Trying again is safe."
+              />
+            )
+          }
+          onConfirm={() => void removeExpense(confirming.expense)}
           onCancel={() => {
             setConfirming(null);
             setError("");

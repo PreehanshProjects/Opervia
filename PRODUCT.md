@@ -49,7 +49,11 @@ It does not try to be accounting software. It deliberately omits credit notes, r
 
 1. **MUR and the Mauritian context.** Not a generic multi-currency product. BRN, local invoice conventions, MUR to cents.
 2. **The printed A4 invoice is the deliverable.** The print layout is a primary surface, must stay clean across page breaks, and the blank sheet must stay handwriting-compatible at fourteen rows.
-3. **Financial history is immutable.** No deleting or editing past records. Void-only; a voided invoice stays visible in history and is excluded from balances. An invoice with payments cannot be voided. The interface must never imply a record can be changed.
+3. **Financial history is immutable.** Void-only; a voided invoice stays visible in history and is excluded from balances. An invoice with payments cannot be voided. The interface must never imply a record can be changed.
+
+   This is enforced in PostgreSQL, not just the UI: the `own_invoices` and `own_payments` policies grant `select` only, so no browser role can delete a financial record. **Reaffirmed by the owner on 14 September 2026** when asked directly whether invoice deletion should be added: keep void-only. Do not propose or implement a migration granting DELETE on these tables.
+
+   What *can* be removed, and why: **expenses** are the owner’s own note-to-self, hold nothing a customer relies on, and are editable and deletable (`own_expenses` is `FOR ALL`). A **customer** can be deleted only while they have no invoices, no opening balance and no payments — after that they are part of the record. Customers and expenses use the same confirmation dialog; only permanent customer deletion requires typing the name back.
 4. **"Net cash movement" is not profit.** The Overview figure is received payments minus recorded expenses. No P&L framing, no "profit" label, no implication of an accounting result.
 
 **Further technical constraints:** invoice numbers come from a PostgreSQL sequence — global, and gaps are possible, so the UI must not present them as contiguous. Account numbers are stored as text to preserve leading zeros. Issued invoices retain their original business/customer snapshots; editing Settings must not appear to rewrite history. The frontend holds only a publishable key. No arbitrary HTML is rendered.
@@ -58,7 +62,7 @@ It does not try to be accounting software. It deliberately omits credit notes, r
 
 **Explicitly out of scope in this version:** credit notes, refunds, expense corrections, draft persistence, shared staff workspaces, bank reconciliation, inventory, VAT filing, double-entry accounting.
 
-**Known gaps for a one-person business**, in priority order: no credit note (an invoice with a payment cannot be corrected at all), no automated backup the owner controls, expenses cannot be edited or deleted although the database already permits it, no printable customer statement, no aging buckets, and no VAT registration number field for a VAT-registered business.
+**Known gaps for a one-person business**, in priority order: no credit note (an invoice with a payment cannot be corrected at all), no automated backup the owner controls, no printable customer statement, no aging buckets, and no VAT registration number field for a VAT-registered business.
 
 ## Brand Commitments
 

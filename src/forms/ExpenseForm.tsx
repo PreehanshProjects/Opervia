@@ -1,22 +1,29 @@
 import { useState } from "react";
-import { Check } from "lucide-react";
+import { Check, Trash2 } from "lucide-react";
 import NumberField from "../components/NumberField";
-import { today, type Data } from "../domain";
+import { today, type Expense } from "../domain";
 
 export default function ExpenseForm({
+  expense,
   busy,
   onSave,
+  onDelete,
 }: {
+  /** Set when correcting an expense already recorded. */
+  expense?: Expense;
   busy: boolean;
-  onSave: (e: Data["expenses"][number]) => Promise<void>;
+  onSave: (e: Expense) => Promise<void>;
+  onDelete?: () => void;
 }) {
-  const [form, setForm] = useState({
-    id: crypto.randomUUID(),
-    date: today(),
-    description: "",
-    category: "Supplies",
-    amount: 0,
-  });
+  const [form, setForm] = useState<Expense>(
+    expense ?? {
+      id: crypto.randomUUID(),
+      date: today(),
+      description: "",
+      category: "Supplies",
+      amount: 0,
+    },
+  );
   return (
     <form
       className="form-body"
@@ -75,13 +82,29 @@ export default function ExpenseForm({
           </select>
         </label>
       </div>
-      <button
-        className="btn primary"
-        disabled={busy || !form.description.trim()}
-      >
-        {busy ? "Saving…" : "Save expense"}
-        <Check size={16} />
-      </button>
+      <div className="form-footer">
+        {/* An expense is a note to self, not a document someone else holds, so
+            correcting or removing one is allowed. Invoices are not. */}
+        {expense && onDelete && (
+          <button
+            type="button"
+            className="text-button danger-text"
+            disabled={busy}
+            onClick={onDelete}
+          >
+            <Trash2 size={15} />
+            Delete expense
+          </button>
+        )}
+        <button
+          type="submit"
+          className="btn primary"
+          disabled={busy || !form.description.trim()}
+        >
+          {busy ? "Saving…" : expense ? "Save changes" : "Save expense"}
+          <Check size={16} />
+        </button>
+      </div>
     </form>
   );
 }

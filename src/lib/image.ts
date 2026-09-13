@@ -57,18 +57,26 @@ export async function readLogo(file: File): Promise<string> {
   );
 }
 
+/**
+ * Reads the chosen file into an <img>.
+ *
+ * Deliberately a data: URI rather than URL.createObjectURL: the app's
+ * Content-Security-Policy is `img-src 'self' data:`, so a blob: URL is blocked
+ * and the upload silently does nothing. Reading as data: needs no change to the
+ * policy, and the resized logo is stored as a data URI anyway.
+ */
 function loadImage(file: File): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
-    const url = URL.createObjectURL(file);
-    const img = new Image();
-    img.onload = () => {
-      URL.revokeObjectURL(url);
-      resolve(img);
+    const reader = new FileReader();
+    reader.onerror = () =>
+      reject(new Error("That file could not be read from your device."));
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = () =>
+        reject(new Error("That file could not be read as an image."));
+      img.src = String(reader.result);
     };
-    img.onerror = () => {
-      URL.revokeObjectURL(url);
-      reject(new Error("That file could not be read as an image."));
-    };
-    img.src = url;
+    reader.readAsDataURL(file);
   });
 }

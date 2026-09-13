@@ -249,3 +249,109 @@ test("the theme can be switched and survives a reload", async ({
   expect(await theme()).toBe("dark");
   expect(await fits()).toBe(true);
 });
+
+test("a business logo can be uploaded and reaches the invoice", async ({
+  page,
+}, testInfo) => {
+  // The app's CSP is `img-src 'self' data:`. Reading the chosen file as a blob:
+  // URL is silently blocked, so this asserts the whole path, not just the state.
+  const blocked: string[] = [];
+  page.on("console", (m) => {
+    if (/Content Security Policy|Refused to load/i.test(m.text()))
+      blocked.push(m.text());
+  });
+
+  await page.goto("/");
+  await page.getByRole("button", { name: "Explore the demo" }).click();
+  if (testInfo.project.name === "mobile")
+    await page.getByRole("button", { name: "Settings" }).click();
+  else
+    await page
+      .locator(".sidebar nav")
+      .getByRole("button", { name: /Settings/ })
+      .click();
+
+  await page
+    .locator(".logo-choose input[type=file]")
+    .setInputFiles("tests/e2e/fixtures/logo.png");
+
+  const preview = page.locator(".logo-preview img");
+  await expect(preview).toBeVisible();
+  await expect(page.locator(".logo-error")).toHaveCount(0);
+  expect(blocked).toEqual([]);
+  // Stored as a data URI, which is what the CSP allows and what gets saved.
+  expect(await preview.getAttribute("src")).toMatch(/^data:image\//);
+
+  await page.getByRole("button", { name: "Save details" }).click();
+  if (testInfo.project.name === "mobile")
+    await page.locator(".bottom-nav").getByRole("button", { name: /Overview/ }).click();
+  else
+    await page.locator(".sidebar nav").getByRole("button", { name: /Overview/ }).click();
+
+  await page.getByRole("button", { name: "Blank invoice" }).click();
+  await expect(page.locator(".paper-logo")).toBeVisible();
+  expect(blocked).toEqual([]);
+});
+
+test("an expense can be corrected or removed, and every action confirms", async ({
+  page,
+}, testInfo) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Explore the demo" }).click();
+  const nav = (name: string) =>
+    page
+      .locator(
+        testInfo.project.name === "mobile" ? ".bottom-nav" : ".sidebar nav",
+      )
+      .getByRole("button", { name: new RegExp(name) })
+      .click();
+  await nav("Expenses");
+
+  // Exporting used to be silent, which looks like nothing happened.
+  const download = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Export CSV" }).click();
+  await download;
+  await expect(page.locator(".toast")).toContainText("opervia-expenses.csv");
+
+  // An expense is a note to self, so correcting a typo is allowed.
+  await page.getByRole("button", { name: /Edit Delivery fuel/ }).click();
+  const dialog = page.getByRole("dialog", { name: "Edit this expense" });
+  await expect(dialog).toBeVisible();
+  await dialog.getByLabel("Amount (MUR)").fill("777");
+  await dialog.getByRole("button", { name: "Save changes" }).click();
+  await expect(page.locator(".toast")).toContainText("Expense updated");
+  await expect(page.locator(".data-table tbody")).toContainText("Rs 777.00");
+
+  // Deleting names the record, the amount and the date before it commits.
+  await page.getByRole("button", { name: /Edit Delivery fuel/ }).click();
+  await page.getByRole("button", { name: "Delete expense" }).click();
+  const confirm = page.getByRole("dialog", { name: "Delete this expense?" });
+  await expect(confirm).toContainText("Delivery fuel");
+  await expect(confirm).toContainText("Rs 777.00");
+  await confirm.getByRole("button", { name: "Delete expense" }).click();
+  await expect(page.locator(".toast")).toContainText("Expense deleted");
+  await expect(
+    page.getByRole("heading", { name: "Nothing spent, nothing missed" }),
+  ).toBeVisible();
+});
+
+test("an invoiced customer cannot be deleted, and is told why", async ({
+  page,
+}, testInfo) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Explore the demo" }).click();
+  await page
+    .locator(testInfo.project.name === "mobile" ? ".bottom-nav" : ".sidebar nav")
+    .getByRole("button", { name: /Customers/ })
+    .click();
+
+  // The invoices table has a foreign key to customers with no ON DELETE, so the
+  // database refuses to orphan financial history. The UI explains rather than
+  // offering an action that would fail.
+  await page.getByRole("button", { name: /Sample Restaurant/ }).click();
+  const dialog = page.getByRole("dialog", { name: "Customer details" });
+  await expect(dialog.getByText(/stay on record/)).toBeVisible();
+  await expect(
+    dialog.getByRole("button", { name: "Delete customer" }),
+  ).toHaveCount(0);
+});

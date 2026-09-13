@@ -145,9 +145,22 @@ export async function voidInvoice(id: string) {
   const { error } = await supabase!.rpc("void_invoice", { invoice_uuid: id });
   check(error);
 }
+/**
+ * Records a new expense, or updates one already recorded. Unlike invoices and
+ * payments, an expense is a note-to-self rather than a document a customer
+ * holds, so correcting a typo is allowed — the own_expenses policy is FOR ALL.
+ */
 export async function saveExpense(expense: Expense) {
   const { error } = await supabase!
     .from("expenses")
-    .insert({ ...expense, owner_id: await owner() });
+    .upsert({ ...expense, owner_id: await owner() });
+  check(error);
+}
+export async function deleteExpense(id: string) {
+  const { error } = await supabase!
+    .from("expenses")
+    .delete()
+    .eq("id", id)
+    .eq("owner_id", await owner());
   check(error);
 }

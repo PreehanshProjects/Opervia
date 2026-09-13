@@ -1,14 +1,17 @@
-import { Download } from "lucide-react";
+import { ChevronRight, Download } from "lucide-react";
 import Empty from "../components/Empty";
-import { CSV_MIME, dateLabel, money, toCsv, type Data } from "../domain";
-import { saveTextFile } from "../lib/platform";
+import { dateLabel, money, type Data, type Expense } from "../domain";
 
 export default function Expenses({
   expenses,
   total,
+  onOpen,
+  onExport,
 }: {
   expenses: Data["expenses"];
   total: number;
+  onOpen: (e: Expense) => void;
+  onExport: (filename: string, rows: unknown[][]) => void;
 }) {
   return (
     <section className="panel">
@@ -21,19 +24,15 @@ export default function Expenses({
           type="button"
           className="btn secondary"
           onClick={() =>
-            void saveTextFile(
-              "opervia-expenses.csv",
-              toCsv([
-                ["Date", "Description", "Category", "Amount MUR"],
-                ...expenses.map((e) => [
-                  e.date,
-                  e.description,
-                  e.category,
-                  e.amount,
-                ]),
+            onExport("opervia-expenses.csv", [
+              ["Date", "Description", "Category", "Amount MUR"],
+              ...expenses.map((e) => [
+                e.date,
+                e.description,
+                e.category,
+                e.amount,
               ]),
-              CSV_MIME,
-            )
+            ])
           }
         >
           <Download size={15} />
@@ -49,6 +48,7 @@ export default function Expenses({
                 <th>DESCRIPTION</th>
                 <th>CATEGORY</th>
                 <th>AMOUNT</th>
+                <th />
               </tr>
             </thead>
             <tbody>
@@ -58,12 +58,28 @@ export default function Expenses({
                   <tr key={e.id}>
                     <td>{dateLabel(e.date)}</td>
                     <td>
-                      <b>{e.description}</b>
+                      <button
+                        type="button"
+                        className="table-link"
+                        onClick={() => onOpen(e)}
+                      >
+                        {e.description}
+                      </button>
                     </td>
                     <td>
                       <span className="badge neutral">{e.category}</span>
                     </td>
                     <td className="number">{money(e.amount)}</td>
+                    <td>
+                      <button
+                        type="button"
+                        aria-label={`Edit ${e.description}`}
+                        className="icon-button"
+                        onClick={() => onOpen(e)}
+                      >
+                        <ChevronRight size={18} />
+                      </button>
+                    </td>
                   </tr>
                 ))}
             </tbody>
