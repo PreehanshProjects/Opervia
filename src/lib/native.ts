@@ -11,8 +11,13 @@ import { isNative } from "./platform";
 export function initNative(onRecovery: () => void) {
   if (!isNative()) return;
 
-  // The topbar is paper-white, so the status bar text must be dark.
-  void StatusBar.setStyle({ style: Style.Light });
+  // The native shell already insets the WebView below the status bar and above
+  // the navigation bar (MainActivity), so the CSS safe-area padding must stand
+  // down or the app pads twice.
+  document.documentElement.classList.add("is-native");
+
+  // The status bar strip is painted by MainActivity; its icons follow the theme
+  // (see setNativeTheme, called from App once the theme is known).
 
   // Confirmation and password-reset links come back through the app scheme
   // (io.novity.opervia://auth?...). Supabase cannot see that URL itself, so the
@@ -55,4 +60,23 @@ export function initBackButton(onBack: () => boolean) {
     if (onBack()) return;
     void App.exitApp();
   });
+}
+
+/**
+ * Keeps the Android status bar legible against whichever theme is showing.
+ * Style.Light means dark icons for a light background, and vice versa.
+ */
+export async function setNativeTheme(resolved: "light" | "dark") {
+  if (!isNative()) return;
+  await StatusBar.setStyle({
+    style: resolved === "dark" ? Style.Dark : Style.Light,
+  });
+  try {
+    await StatusBar.setBackgroundColor({
+      color: resolved === "dark" ? "#0e1a16" : "#f7f8f5",
+    });
+  } catch {
+    // Not supported on every Android version; the inset padding still shows
+    // the page colour behind the bar.
+  }
 }

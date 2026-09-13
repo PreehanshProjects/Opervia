@@ -200,3 +200,52 @@ test("a customer with no invoices can be deleted; one with invoices cannot", asy
 
   await expect(page.getByText("Temporary Trader")).toHaveCount(0);
 });
+
+test("the theme can be switched and survives a reload", async ({
+  page,
+}, testInfo) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Explore the demo" }).click();
+
+  // A layout wider than the viewport makes Chromium scale the whole page down,
+  // which silently breaks hit-testing on fixed elements like the bottom bar.
+  const fits = async () =>
+    page.evaluate(
+      () => document.documentElement.scrollWidth <= window.innerWidth,
+    );
+  expect(await fits()).toBe(true);
+
+  const theme = () =>
+    page.evaluate(() => document.documentElement.dataset.theme);
+  expect(await theme()).toBe("light");
+
+  // On mobile the switch lives in Settings; the topbar has no room for it.
+  if (testInfo.project.name === "mobile")
+    await page.getByRole("button", { name: "Settings" }).click();
+  else
+    await page.locator(".sidebar nav").getByRole("button", { name: /Settings/ }).click();
+
+  await page
+    .locator(".appearance-card")
+    .getByRole("radio", { name: "Dark" })
+    .click();
+  expect(await theme()).toBe("dark");
+
+  // The invoice sheet is a document: it stays on white paper in every theme.
+  if (testInfo.project.name === "mobile")
+    await page.locator(".bottom-nav").getByRole("button", { name: /Overview/ }).click();
+  else
+    await page.locator(".sidebar nav").getByRole("button", { name: /Overview/ }).click();
+  await page.getByRole("button", { name: "Blank invoice" }).click();
+  const paper = await page.evaluate(() => {
+    const el = document.querySelector(".invoice-paper");
+    return getComputedStyle(el).backgroundColor;
+  });
+  expect(paper).toBe("rgb(255, 255, 255)");
+  await page.getByRole("button", { name: "Close dialog" }).click();
+
+  await page.reload();
+  // Applied before first paint by theme-boot.js, so there is no light flash.
+  expect(await theme()).toBe("dark");
+  expect(await fits()).toBe(true);
+});

@@ -41,26 +41,38 @@ function check(error: { message: string } | null) {
 }
 export async function loadData(): Promise<Data> {
   if (!supabase) throw new Error("Supabase is not configured.");
-  const [business, customers, invoices, payments, expenses] = await Promise.all(
-    ["business_profiles", "customers", "invoices", "payments", "expenses"].map(
-      async (table) => {
+  const [business, customers, invoices, payments, expenses, openings] =
+    await Promise.all(
+      [
+        "business_profiles",
+        "customers",
+        "invoices",
+        "payments",
+        "expenses",
+        "opening_balances",
+      ].map(async (table) => {
         const rows: Record<string, unknown>[] = [];
         for (let offset = 0; offset < 100000;) {
-          const { data, error } = await supabase!
-            .from(table)
-            .select("*")
-            .order(table === "business_profiles" ? "owner_id" : "id")
-            .range(offset, offset + 499);
-          check(error);
-          if (!data?.length) return rows;
-          rows.push(...data);
-          offset += data.length;
-        }
-        throw new Error(
-          "Workspace record limit reached. Export and archive records before continuing.",
-        );
-      },
-    ),
+        const { data, error } = await supabase!
+          .from(table)
+          .select("*")
+          .order(
+            table === "business_profiles"
+              ? "owner_id"
+              : table === "opening_balances"
+                ? "customer_id"
+                : "id",
+          )
+          .range(offset, offset + 499);
+        check(error);
+        if (!data?.length) return rows;
+        rows.push(...data);
+        offset += data.length;
+      }
+      throw new Error(
+        "Workspace record limit reached. Export and archive records before continuing.",
+      );
+    }),
   );
   return {
     business: {
@@ -71,6 +83,7 @@ export async function loadData(): Promise<Data> {
     invoices,
     payments,
     expenses,
+    openings,
   } as Data;
 }
 async function owner() {
@@ -111,6 +124,21 @@ export async function createInvoice(input: InvoiceInput) {
 }
 export async function recordPayment(payment: Payment) {
   const { error } = await supabase!.rpc("record_payment", { payload: payment });
+  check(error);
+}
+/**
+ * Records or updates what a customer owed before Opervia. An amount of zero
+ * clears it, which the server refuses once payments have been settled against it.
+ */
+export async function saveOpeningBalance(input: {
+  customer_id: string;
+  date: string;
+  amount: number;
+  note: string;
+}) {
+  const { error } = await supabase!.rpc("save_opening_balance", {
+    payload: input,
+  });
   check(error);
 }
 export async function voidInvoice(id: string) {

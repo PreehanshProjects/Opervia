@@ -20,6 +20,7 @@ export default function Overview({
   valid,
   overdue,
   outstanding,
+  openingOwed,
   received,
   expenses,
   go,
@@ -34,6 +35,8 @@ export default function Overview({
   valid: Invoice[];
   overdue: Invoice[];
   outstanding: number;
+  /** Part of `outstanding` that predates Opervia, so the hint can stay truthful. */
+  openingOwed: number;
   received: number;
   expenses: number;
   go: (p: Page) => void;
@@ -49,7 +52,11 @@ export default function Overview({
         <Stat
           title="Outstanding invoices"
           value={money(outstanding)}
-          hint={`${valid.filter((i) => balance(i, data.payments) > 0).length} invoices awaiting payment`}
+          hint={
+            openingOwed > 0
+              ? `${valid.filter((i) => balance(i, data.payments) > 0).length} invoices, plus ${money(openingOwed)} from before Opervia`
+              : `${valid.filter((i) => balance(i, data.payments) > 0).length} invoices awaiting payment`
+          }
           icon={<FileText size={19} />}
           featured
         />

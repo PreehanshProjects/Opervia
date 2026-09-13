@@ -1,5 +1,8 @@
 import { useState, type FormEvent } from "react";
-import { Check, ShieldCheck } from "lucide-react";
+import { Check, Image as ImageIcon, ShieldCheck, Trash2, Upload } from "lucide-react";
+import { LOGO_HINT, readLogo } from "../lib/image";
+import ThemeSwitch from "../components/ThemeSwitch";
+import type { Theme } from "../lib/theme";
 import type { Business } from "../domain";
 
 export default function BusinessForm({
@@ -7,15 +10,20 @@ export default function BusinessForm({
   busy,
   demo,
   email,
+  theme,
+  onTheme,
   onSave,
 }: {
   business: Business;
   busy: boolean;
   demo: boolean;
   email?: string;
+  theme: Theme;
+  onTheme: (t: Theme) => void;
   onSave: (b: Business) => Promise<void>;
 }) {
   const [form, setForm] = useState(business);
+  const [logoError, setLogoError] = useState("");
   return (
     <div className="settings-grid">
       <form
@@ -32,6 +40,64 @@ export default function BusinessForm({
           not required. These details appear on new invoices and blank invoice
           sheets.
         </p>
+        {/* The logo prints at the top of every invoice, beside the business name. */}
+        <div className="logo-field">
+          <div className="logo-preview" aria-hidden={!form.logo}>
+            {form.logo ? (
+              <img src={form.logo} alt="" />
+            ) : (
+              <ImageIcon size={22} />
+            )}
+          </div>
+          <div className="logo-actions">
+            <b>Business logo</b>
+            <p>{LOGO_HINT}</p>
+            {logoError && (
+              <p className="logo-error" role="alert">
+                {logoError}
+              </p>
+            )}
+            <div className="button-row">
+              <label className="btn secondary logo-choose">
+                <Upload size={15} />
+                {form.logo ? "Replace logo" : "Add a logo"}
+                <input
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    e.target.value = "";
+                    if (!file) return;
+                    setLogoError("");
+                    try {
+                      const logo = await readLogo(file);
+                      setForm((f) => ({ ...f, logo }));
+                    } catch (err) {
+                      setLogoError(
+                        err instanceof Error
+                          ? err.message
+                          : "That image could not be used.",
+                      );
+                    }
+                  }}
+                />
+              </label>
+              {form.logo && (
+                <button
+                  type="button"
+                  className="text-button danger-text"
+                  onClick={() => {
+                    setLogoError("");
+                    setForm((f) => ({ ...f, logo: "" }));
+                  }}
+                >
+                  <Trash2 size={14} />
+                  Remove
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
         <div className="form-grid">
           {(
             [
@@ -105,6 +171,14 @@ export default function BusinessForm({
           <Check size={16} />
         </button>
       </form>
+      <div className="panel form-body appearance-card">
+        <h3>Appearance</h3>
+        <p>
+          Choose how Opervia looks on this device. The printed invoice always
+          stays on white paper.
+        </p>
+        <ThemeSwitch theme={theme} onChange={onTheme} />
+      </div>
       <div className="panel form-body security-card">
         <ShieldCheck size={27} />
         <h3>A private place for your books</h3>

@@ -2,6 +2,8 @@ import Decimal from "decimal.js";
 
 export type Business = {
   name: string;
+  /** Data URI of the business logo, shown on the invoice. Empty when unset. */
+  logo: string;
   proprietor: string;
   subtitle: string;
   address: string;
@@ -46,11 +48,21 @@ export type Invoice = {
 };
 export type Payment = {
   id: string;
-  invoice_id: string;
+  /** Set when the payment settles an invoice. Null when it settles an opening balance. */
+  invoice_id: string | null;
+  /** Set when the payment settles a customer opening balance. Never both. */
+  customer_id?: string | null;
   date: string;
   amount: number;
   method: string;
   reference: string;
+};
+/** What a customer already owed before Opervia. One dated entry per customer. */
+export type OpeningBalance = {
+  customer_id: string;
+  date: string;
+  amount: number;
+  note: string;
 };
 export type Expense = {
   id: string;
@@ -65,6 +77,7 @@ export type Data = {
   invoices: Invoice[];
   payments: Payment[];
   expenses: Expense[];
+  openings: OpeningBalance[];
 };
 export type InvoiceInput = Pick<
   Invoice,
@@ -72,6 +85,7 @@ export type InvoiceInput = Pick<
 > & { id: string; deposit: number; method: string };
 export const defaultBusiness: Business = {
   name: "Your business",
+  logo: "",
   proprietor: "",
   subtitle: "",
   address: "",
@@ -90,6 +104,7 @@ export const emptyData = (): Data => ({
   invoices: [],
   payments: [],
   expenses: [],
+  openings: [],
 });
 export const today = () => {
   const d = new Date();
@@ -148,8 +163,12 @@ export function status(invoice: Invoice, payments: Payment[]) {
 export function invoiceCountFor(customerId: string, invoices: Invoice[]) {
   return invoices.filter((i) => i.customer_id === customerId).length;
 }
-export function canDeleteCustomer(customerId: string, invoices: Invoice[]) {
-  return invoiceCountFor(customerId, invoices) === 0;
+export function canDeleteCustomer(customerId: string, data: Data) {
+  return (
+    invoiceCountFor(customerId, data.invoices) === 0 &&
+    !openingFor(customerId, data) &&
+    !data.payments.some((p) => p.customer_id === customerId)
+  );
 }
 export function validateInvoice(input: InvoiceInput) {
   if (!input.customer_id) throw new Error("Choose a customer.");
@@ -198,24 +217,91 @@ export type LedgerRow = {
   date: string;
   label: string;
   detail: string;
-  type: "Invoice" | "Payment" | "Expense";
+  type: "Opening" | "Invoice" | "Payment" | "Expense";
   debit: number;
   credit: number;
   balance: number;
 };
+/** The opening balance recorded for a customer, if any. */
+export const openingFor = (customerId: string, data: Data) =>
+  data.openings.find((o) => o.customer_id === customerId);
+/** Money already received against a customer's opening balance. */
+export const openingPaid = (customerId: string, payments: Payment[]) =>
+  roundMoney(
+    payments
+      .filter((p) => !p.invoice_id && p.customer_id === customerId)
+      .reduce((sum, p) => sum.plus(p.amount), new Decimal(0)),
+  );
+/** What is still owed from before Opervia, for one customer. */
+export function openingOutstanding(customerId: string, data: Data) {
+  const opening = openingFor(customerId, data);
+  if (!opening) return 0;
+  return roundMoney(
+    Decimal.max(
+      new Decimal(opening.amount).minus(openingPaid(customerId, data.payments)),
+      0,
+    ),
+  );
+}
+/** What every customer still owes from before Opervia. */
+export const totalOpeningOutstanding = (data: Data) =>
+  roundMoney(
+    data.openings.reduce(
+      (sum, o) => sum.plus(openingOutstanding(o.customer_id, data)),
+      new Decimal(0),
+    ),
+  );
 export function ledger(data: Data, customerId = ""): LedgerRow[] {
   const invoices = data.invoices.filter(
     (i) => !i.voided && (!customerId || i.customer_id === customerId),
   );
-  const rows: Omit<LedgerRow, "balance">[] = invoices.map((i) => ({
-    id: i.id,
-    date: i.date,
-    label: i.number,
-    detail: i.customer.name,
-    type: "Invoice",
-    debit: i.total,
+  const customerName = (id: string) =>
+    data.customers.find((c) => c.id === id)?.name ?? "Customer";
+  // Opening balances are debits that predate every Opervia invoice.
+  const openings = data.openings.filter(
+    (o) => !customerId || o.customer_id === customerId,
+  );
+  const rows: Omit<LedgerRow, "balance">[] = openings.map((o) => ({
+    id: `opening-${o.customer_id}`,
+    date: o.date,
+    label: "Opening balance",
+    detail: o.note
+      ? `${customerName(o.customer_id)} · ${o.note}`
+      : `${customerName(o.customer_id)} · owed before Opervia`,
+    type: "Opening" as const,
+    debit: o.amount,
     credit: 0,
   }));
+  rows.push(
+    ...invoices.map((i) => ({
+      id: i.id,
+      date: i.date,
+      label: i.number,
+      detail: i.customer.name,
+      type: "Invoice" as const,
+      debit: i.total,
+      credit: 0,
+    })),
+  );
+  // Payments settling an opening balance carry a customer, not an invoice.
+  rows.push(
+    ...data.payments
+      .filter(
+        (p) =>
+          !p.invoice_id &&
+          p.customer_id &&
+          openings.some((o) => o.customer_id === p.customer_id),
+      )
+      .map((p) => ({
+        id: p.id,
+        date: p.date,
+        label: "Payment received",
+        detail: `Opening balance · ${p.method}`,
+        type: "Payment" as const,
+        debit: 0,
+        credit: p.amount,
+      })),
+  );
   rows.push(
     ...data.payments
       .filter((p) => invoices.some((i) => i.id === p.invoice_id))
@@ -230,16 +316,16 @@ export function ledger(data: Data, customerId = ""): LedgerRow[] {
       })),
   );
   // Expenses belong to the cash summary, never to a customer receivables ledger.
+  // Same-day ordering is explicit so the running balance never reshuffles:
+  // what was already owed, then what was billed, then what was received.
+  const rank = { Opening: 0, Invoice: 1, Payment: 2, Expense: 3 } as const;
   let running = new Decimal(0);
   return rows
     .sort(
       (a, b) =>
         a.date.localeCompare(b.date) ||
-        (a.type === b.type
-          ? a.id.localeCompare(b.id)
-          : a.type === "Invoice"
-            ? -1
-            : 1),
+        rank[a.type] - rank[b.type] ||
+        a.id.localeCompare(b.id),
     )
     .map((r) => {
       running = running.plus(r.debit).minus(r.credit);

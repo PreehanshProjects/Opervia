@@ -28,7 +28,7 @@ A paper-invoice-book replacement built for the Mauritian small business, where t
 
 The mechanism a neighboring product could not truthfully copy: totals, validation, ownership, and numbering are computed and enforced **server-side in PostgreSQL** (`create_invoice`, `record_payment`, `void_invoice` under row-level security), with UUID idempotency and row locking. The browser cannot write an invoice or payment table directly. The arithmetic and the audit trail are not a frontend promise.
 
-It does not try to be accounting software. It deliberately omits credit notes, refunds, bank reconciliation, opening balances, inventory, VAT filing, and double-entry.
+It does not try to be accounting software. It deliberately omits credit notes, refunds, bank reconciliation, inventory, VAT filing, and double-entry.
 
 ## Operating Context
 
@@ -54,7 +54,11 @@ It does not try to be accounting software. It deliberately omits credit notes, r
 
 **Further technical constraints:** invoice numbers come from a PostgreSQL sequence — global, and gaps are possible, so the UI must not present them as contiguous. Account numbers are stored as text to preserve leading zeros. Issued invoices retain their original business/customer snapshots; editing Settings must not appear to rewrite history. The frontend holds only a publishable key. No arbitrary HTML is rendered.
 
-**Explicitly out of scope in this version:** credit notes, refunds, expense corrections, draft persistence, shared staff workspaces, bank reconciliation, opening balances, inventory, VAT filing, double-entry accounting.
+**Opening balances (added):** what a customer owed before Opervia is recorded as one dated entry per customer. It is not an invoice — it consumes no number from the sequence, is never printed, and must never be sent to a customer who already holds the paper invoice it represents. Money received against it is recorded as a real payment so the cash figures stay correct. A customer with an opening balance cannot be deleted, and the balance cannot be lowered below what has already been settled against it.
+
+**Explicitly out of scope in this version:** credit notes, refunds, expense corrections, draft persistence, shared staff workspaces, bank reconciliation, inventory, VAT filing, double-entry accounting.
+
+**Known gaps for a one-person business**, in priority order: no credit note (an invoice with a payment cannot be corrected at all), no automated backup the owner controls, expenses cannot be edited or deleted although the database already permits it, no printable customer statement, no aging buckets, and no VAT registration number field for a VAT-registered business.
 
 ## Brand Commitments
 

@@ -3,7 +3,9 @@ import Empty from "../components/Empty";
 import {
   balance,
   money,
+  openingOutstanding,
   type Customer,
+  type Data,
   type Invoice,
   type Payment,
 } from "../domain";
@@ -12,6 +14,7 @@ export default function Customers({
   customers,
   valid,
   payments,
+  data,
   search,
   setSearch,
   onOpen,
@@ -19,6 +22,7 @@ export default function Customers({
   customers: Customer[];
   valid: Invoice[];
   payments: Payment[];
+  data: Data;
   search: string;
   setSearch: (s: string) => void;
   onOpen: (c: Customer) => void;
@@ -62,10 +66,17 @@ export default function Customers({
                   {money(
                     valid
                       .filter((i) => i.customer_id === c.id)
-                      .reduce((s, i) => s + balance(i, payments), 0),
+                      .reduce((s, i) => s + balance(i, payments), 0) +
+                      openingOutstanding(c.id, data),
                   )}
                 </b>
               </div>
+              {openingOutstanding(c.id, data) > 0 && (
+                <small className="card-note">
+                  Includes {money(openingOutstanding(c.id, data))} owed from
+                  before Opervia
+                </small>
+              )}
             </button>
           ))}
       </div>

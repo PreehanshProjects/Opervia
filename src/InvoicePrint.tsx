@@ -20,18 +20,25 @@ export default function InvoicePrint({
   blank?: boolean;
 }) {
   const b = invoice?.business ?? business;
+  // Text details come from the invoice's own snapshot so history stays intact.
+  // The logo deliberately does not: it is taken from the current profile, so an
+  // image is never copied into every invoice row in the database.
+  const logo = business.logo;
   return (
     <article className={`invoice-paper ${blank ? "blank-paper" : ""}`}>
       <header className="paper-header">
-        <div>
-          <span className="paper-eyebrow">
-            {b.subtitle || "INVOICE / SALES INVOICE"}
-          </span>
-          <h1>{b.name}</h1>
-          {b.proprietor && <p>Proprietor: {b.proprietor}</p>}
-          <p>{b.address}</p>
-          <p>{[b.phone, b.email].filter(Boolean).join(" · ")}</p>
-          {b.brn && <p>Business registration no. {b.brn}</p>}
+        <div className="paper-identity">
+          {logo && <img className="paper-logo" src={logo} alt="" />}
+          <div>
+            <span className="paper-eyebrow">
+              {b.subtitle || "INVOICE / SALES INVOICE"}
+            </span>
+            <h1>{b.name}</h1>
+            {b.proprietor && <p>Proprietor: {b.proprietor}</p>}
+            <p>{b.address}</p>
+            <p>{[b.phone, b.email].filter(Boolean).join(" · ")}</p>
+            {b.brn && <p>Business registration no. {b.brn}</p>}
+          </div>
         </div>
         <div className="paper-title">
           <h2>INVOICE</h2>

@@ -1,5 +1,13 @@
 import Empty from "../components/Empty";
-import { dateLabel, money, type Customer, type ledger } from "../domain";
+import OpeningPaymentForm from "../forms/OpeningPaymentForm";
+import {
+  dateLabel,
+  money,
+  type Customer,
+  type ledger,
+  type OpeningBalance,
+  type Payment,
+} from "../domain";
 
 type LedgerRow = ReturnType<typeof ledger>[number];
 
@@ -8,11 +16,20 @@ export default function Ledger({
   customers,
   ledgerCustomer,
   setLedgerCustomer,
+  opening,
+  openingOwed,
+  busy,
+  onRecordOpeningPayment,
 }: {
   rows: LedgerRow[];
   customers: Customer[];
   ledgerCustomer: string;
   setLedgerCustomer: (id: string) => void;
+  /** Only set when a single customer is selected and they owe from before. */
+  opening?: OpeningBalance;
+  openingOwed: number;
+  busy: boolean;
+  onRecordOpeningPayment: (p: Payment) => Promise<boolean>;
 }) {
   return (
     <>
@@ -37,6 +54,19 @@ export default function Ledger({
           </select>
         </label>
       </div>
+      {opening && openingOwed > 0 && (
+        <OpeningPaymentForm
+          customerId={opening.customer_id}
+          customerName={
+            customers.find((c) => c.id === opening.customer_id)?.name ??
+            "This customer"
+          }
+          owed={openingOwed}
+          openingDate={opening.date}
+          busy={busy}
+          onSave={onRecordOpeningPayment}
+        />
+      )}
       <section className="panel">
         {rows.length ? (
           <div className="table-scroll">

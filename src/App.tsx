@@ -25,6 +25,10 @@ import {
   status,
   canDeleteCustomer,
   invoiceCountFor,
+  openingFor,
+  openingPaid,
+  openingOutstanding,
+  totalOpeningOutstanding,
   totals,
   validateInvoice,
   ledger,
@@ -53,8 +57,14 @@ import PaymentForm from "./forms/PaymentForm";
 import ExpenseForm from "./forms/ExpenseForm";
 import { clearRescuedDraft, hasRescuedDraft } from "./lib/draft";
 import { errorText } from "./lib/errors";
-import { printDocument, saveTextFile } from "./lib/platform";
-import { initBackButton, initNative } from "./lib/native";
+import { isNative, printDocument, saveTextFile } from "./lib/platform";
+import {
+  applyTheme,
+  readTheme,
+  watchSystemTheme,
+  type Theme,
+} from "./lib/theme";
+import { initBackButton, initNative, setNativeTheme } from "./lib/native";
 import type { Modal, Page } from "./lib/nav";
 
 export default function App() {
@@ -89,6 +99,7 @@ export default function App() {
   const [confirming, setConfirming] = useState<
     { kind: "void"; invoice: Invoice } | { kind: "customer"; customer: Customer } | null
   >(null);
+  const [theme, setTheme] = useState<Theme>(readTheme);
   const [sessionEnded, setSessionEnded] = useState(false);
   const deliberateSignOut = useRef(false);
   const loadGeneration = useRef(0);
@@ -147,6 +158,21 @@ export default function App() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
   useEffect(() => setScrolled(window.scrollY > 150), [page]);
+  // Theme: apply on change, and follow the device while set to "system".
+  useEffect(() => {
+    const resolved = applyTheme(theme, true);
+    if (isNative()) void setNativeTheme(resolved);
+  }, [theme]);
+  useEffect(
+    () =>
+      watchSystemTheme(() => {
+        if (theme === "system") {
+          const resolved = applyTheme("system");
+          if (isNative()) void setNativeTheme(resolved);
+        }
+      }),
+    [theme],
+  );
   // Native shell wiring. Both are no-ops in the browser.
   useEffect(() => initNative(() => setRecovery(true)), []);
   // Android's back button reads through the same hierarchy the user sees:
@@ -241,7 +267,7 @@ export default function App() {
   async function removeCustomer(customer: Customer) {
     const ok = await act(async () => {
       // Guarded again here: the list could have changed since the dialog opened.
-      if (!canDeleteCustomer(customer.id, data.invoices))
+      if (!canDeleteCustomer(customer.id, data))
         throw new Error(
           "This customer now has invoices, so their details stay on record.",
         );
@@ -336,8 +362,11 @@ export default function App() {
     }, "Signed out");
   }
   const valid = data.invoices.filter((i) => !i.voided);
+  // What is owed from before Opervia counts too, or the figure understates the
+  // debt for anyone who migrated from a paper book.
+  const openingOwed = totalOpeningOutstanding(data);
   const outstanding = roundMoney(
-    valid.reduce((s, i) => s + balance(i, data.payments), 0),
+    valid.reduce((s, i) => s + balance(i, data.payments), 0) + openingOwed,
   );
   const received = roundMoney(data.payments.reduce((s, p) => s + p.amount, 0));
   const expenses = roundMoney(data.expenses.reduce((s, e) => s + e.amount, 0));
@@ -392,7 +421,15 @@ export default function App() {
     <div className="app-shell">
       <Sidebar data={data} page={page} demo={demo} go={go} logout={logout} />
       <div className="app-main">
-        <Topbar page={page} demo={demo} email={session?.user.email} go={go} logout={logout} />
+        <Topbar
+          page={page}
+          demo={demo}
+          email={session?.user.email}
+          theme={theme}
+          onTheme={setTheme}
+          go={go}
+          logout={logout}
+        />
         {demo && (
           <div className="demo-banner">
             You’re exploring sample data. Changes last until you leave this
@@ -532,6 +569,7 @@ export default function App() {
                   valid={valid}
                   overdue={overdue}
                   outstanding={outstanding}
+                  openingOwed={openingOwed}
                   received={received}
                   expenses={expenses}
                   go={go}
@@ -563,6 +601,26 @@ export default function App() {
                   customers={data.customers}
                   ledgerCustomer={ledgerCustomer}
                   setLedgerCustomer={setLedgerCustomer}
+                  opening={
+                    ledgerCustomer ? openingFor(ledgerCustomer, data) : undefined
+                  }
+                  openingOwed={
+                    ledgerCustomer ? openingOutstanding(ledgerCustomer, data) : 0
+                  }
+                  busy={busy}
+                  onRecordOpeningPayment={async (payment) => {
+                    return !!(await act(async () => {
+                      if (demo)
+                        setData((d) => ({
+                          ...d,
+                          payments: [...d.payments, payment],
+                        }));
+                      else {
+                        await api.recordPayment(payment);
+                        await sync();
+                      }
+                    }, "Payment recorded"));
+                  }}
                 />
               )}
               {page === "Customers" && (
@@ -570,6 +628,7 @@ export default function App() {
                   customers={data.customers}
                   valid={valid}
                   payments={data.payments}
+                  data={data}
                   search={search}
                   setSearch={setSearch}
                   onOpen={(c) => {
@@ -583,6 +642,8 @@ export default function App() {
               )}
               {page === "Settings" && (
                 <BusinessForm
+                  theme={theme}
+                  onTheme={setTheme}
                   business={data.business}
                   busy={busy}
                   demo={demo}
@@ -643,23 +704,45 @@ export default function App() {
             }
             onDelete={
               customerEdit &&
-              canDeleteCustomer(customerEdit.id, data.invoices)
+              canDeleteCustomer(customerEdit.id, data)
                 ? () =>
                     setConfirming({ kind: "customer", customer: customerEdit })
                 : undefined
             }
-            onSave={async (customer) => {
+            opening={
+              customerEdit ? openingFor(customerEdit.id, data) : undefined
+            }
+            openingSettled={
+              customerEdit ? openingPaid(customerEdit.id, data.payments) : 0
+            }
+            onSave={async (customer, owed) => {
               const ok = await act(async () => {
-                if (demo)
+                if (demo) {
                   setData((d) => ({
                     ...d,
                     customers: [
                       ...d.customers.filter((c) => c.id !== customer.id),
                       customer,
                     ],
+                    openings: [
+                      ...d.openings.filter(
+                        (o) => o.customer_id !== customer.id,
+                      ),
+                      ...(owed.amount > 0
+                        ? [{ ...owed, customer_id: customer.id }]
+                        : []),
+                    ],
                   }));
-                else {
+                } else {
+                  // The customer must exist before an opening balance can
+                  // reference it, so these run in order, not in parallel.
                   await api.saveCustomer(customer);
+                  const existing = openingFor(customer.id, data);
+                  if (owed.amount > 0 || existing)
+                    await api.saveOpeningBalance({
+                      customer_id: customer.id,
+                      ...owed,
+                    });
                   await sync();
                 }
               }, "Customer saved");

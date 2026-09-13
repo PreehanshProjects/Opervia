@@ -391,6 +391,7 @@ A 58px Ledger Green circle above the bar on the right, carrying the create-invoi
 ### Data table
 - **Header:** 11px DM Sans 500 with +0.7px tracking on a Sunken Surface ground, bounded by hairlines above and below — seated into the panel rather than underlined.
 - **Cells:** 13px, 19px padding, `white-space: nowrap` inside an `overflow-x: auto` scroller. First column gets 24px left padding to align with the panel heading.
+- **Invoice sheet columns:** the printed table carries the same vertical rules, in `#e7ebdf` with a darker `#d9e2cb` under the header band. The outer edges stay open so the block reads as a column of figures rather than a boxed grid.
 - **Column rules:** a 1px `#f2f4ed` `border-right` on every cell except the last — lighter than the `#f0f2eb` row rule, so the eye reads rows first and columns second. This is the ruled ledger column, and it already existed in the printed blank sheet; the screen table simply inherits it now.
 - **Row hover:** `#fcfdf9` — barely there, enough to track a row across a wide table.
 - **Row link:** 12px at weight 650 in `#334f3c`, underlining on hover.
@@ -414,6 +415,20 @@ The single surface for destructive and irreversible actions — voiding an invoi
 The product's centerpiece and the only component with its own type scale. A white A4 page resting on a `#e9ece4` desk with the Paper shadow, its own ink color (`#29362d`), a `#eef2e7` table header band, ruled rows, a totals block, and signature lines.
 
 In print it stops being a component and becomes a document: `@page { size: A4; margin: 12mm }`, all chrome hidden, the table header repeating across pages via `display: table-header-group`, `break-inside: avoid` on the header, rows, totals and signature blocks, and `print-color-adjust: exact` so the header band survives. The blank variant adds ruled cell borders and taller rows for handwriting.
+
+### Theme
+
+Opervia ships light and dark, plus **Match device**. Three positions, not a binary toggle: on a phone "follow my device" is the setting most people actually want, and a two-state switch cannot express it. The control is one object with a sliding thumb; the sun and moon each sit at a slight angle until selected, so the change reads as physical.
+
+The whole palette is CSS custom properties on `:root`, with a `[data-theme="dark"]` block redefining them. Dark is not a grey inversion: surfaces are warm green-blacks (`#0e1a16` page, `#14241f` surface) so the hue family survives, and the brand inverts to lime on dark rather than staying a dark green that would disappear. Text sitting **on** the brand colour uses its own `--on-brand` ladder, because that surface does not invert with the page.
+
+`public/theme-boot.js` applies the stored theme before first paint, so a dark-mode user never sees a white flash. It is a file rather than an inline script because the Content-Security-Policy is `script-src 'self'`, and weakening that for one script would not be a fair trade.
+
+The compact switch in the topbar is hidden below 760px. Three positions plus Settings, sign-out and the avatar overflow a 390px viewport — and an overflowing layout makes Chromium scale the whole page down, which silently breaks hit-testing on fixed elements like the bottom bar. On a phone the full switch lives in Settings, one tap away.
+
+**The Paper Is Paper Rule.** The invoice sheet never follows the theme. It is the document that prints and that the customer receives, so what is on screen must be what comes out of the printer. Every rule under `.paper-*`, `.invoice-paper` and `@media print` keeps literal colours and is deliberately excluded from tokenisation.
+
+**The Theme Transition Rule.** The cross-fade is armed only for the moment of the change, via a class removed after 320ms. A standing transition on every table cell keeps the compositor busy for no benefit — and it makes automated hit-testing flaky.
 
 ### Brand mark
 A rounded-square mark (`public/favicon.svg`) in Ledger Green carrying a Fresh Lime "O" aperture with a Paper-white quadrant — the two signature colors and the ground, in one 64×64 shape. Its corner radius is `28.125%`, which resolves to the ladder's 11px at the canonical 40px size and stays proportional at every other.

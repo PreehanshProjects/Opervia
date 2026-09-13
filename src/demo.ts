@@ -137,5 +137,14 @@ export function makeDemo(): Data {
         amount: 650,
       },
     ],
+    // What this customer already owed when the paper book was closed.
+    openings: [
+      {
+        customer_id: customers[2].id,
+        date: plusDays(today(), -45),
+        amount: 3200,
+        note: "Carried over from the invoice book",
+      },
+    ],
   };
 }

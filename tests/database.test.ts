@@ -44,6 +44,8 @@ beforeAll(async () => {
   for (const file of [
     "202609130001_opervia.sql",
     "202609140001_mauritius_today.sql",
+    "202609140002_opening_balances.sql",
+    "202609140003_business_logo.sql",
   ])
     await db.exec(
       readFileSync(
@@ -308,5 +310,189 @@ describe("dates are reckoned in Mauritius, not UTC", () => {
         reference: "",
       }),
     ).resolves.toBeDefined();
+  });
+});
+
+describe("opening balances", () => {
+  const openingCustomer = "10000000-0000-4000-8000-000000000050";
+
+  beforeAll(async () => {
+    await asUser(userA);
+    await db.query(
+      "insert into public.customers(id,owner_id,name) values($1,$2,$3)",
+      [openingCustomer, userA, "Carried Over Ltd"],
+    );
+  });
+
+  it("records what a customer owed before Opervia", async () => {
+    await asUser(userA);
+    await rpc("save_opening_balance", {
+      customer_id: openingCustomer,
+      date: "2026-01-01",
+      amount: 12400,
+      note: "From the book",
+    });
+    const r = await db.query<{ amount: string }>(
+      "select amount::text from public.opening_balances where customer_id=$1",
+      [openingCustomer],
+    );
+    expect(r.rows[0].amount).toBe("12400");
+  });
+
+  it("refuses an opening balance for another owner's customer", async () => {
+    await asUser(userB);
+    await expect(
+      rpc("save_opening_balance", {
+        customer_id: openingCustomer,
+        date: "2026-01-01",
+        amount: 50,
+        note: "",
+      }),
+    ).rejects.toThrow(/Customer not found/);
+  });
+
+  it("settles an opening balance with a real payment", async () => {
+    await asUser(userA);
+    await rpc("record_payment", {
+      id: "30000000-0000-4000-8000-000000000050",
+      customer_id: openingCustomer,
+      date: "2026-02-01",
+      amount: 5000,
+      method: "Cash",
+      reference: "",
+    });
+    const r = await db.query<{ amount: string; invoice_id: string | null }>(
+      "select amount::text, invoice_id from public.payments where customer_id=$1",
+      [openingCustomer],
+    );
+    expect(r.rows).toHaveLength(1);
+    // It is a payment like any other, so the cash figures stay correct.
+    expect(r.rows[0].amount).toBe("5000");
+    expect(r.rows[0].invoice_id).toBeNull();
+  });
+
+  it("refuses a payment larger than what is still owed", async () => {
+    await asUser(userA);
+    await expect(
+      rpc("record_payment", {
+        id: "30000000-0000-4000-8000-000000000051",
+        customer_id: openingCustomer,
+        date: "2026-02-02",
+        amount: 7400.01,
+        method: "Cash",
+        reference: "",
+      }),
+    ).rejects.toThrow(/exceeds the opening balance/);
+  });
+
+  it("refuses to lower the opening balance below what has been settled", async () => {
+    await asUser(userA);
+    await expect(
+      rpc("save_opening_balance", {
+        customer_id: openingCustomer,
+        date: "2026-01-01",
+        amount: 4000,
+        note: "",
+      }),
+    ).rejects.toThrow(/cannot be less than the payments/);
+  });
+
+  it("refuses to remove an opening balance that has been part-settled", async () => {
+    await asUser(userA);
+    await expect(
+      rpc("save_opening_balance", {
+        customer_id: openingCustomer,
+        date: "2026-01-01",
+        amount: 0,
+        note: "",
+      }),
+    ).rejects.toThrow(/cannot be removed/);
+  });
+
+  it("refuses an opening date in the future", async () => {
+    await asUser(userA);
+    await expect(
+      rpc("save_opening_balance", {
+        customer_id: customerA,
+        date: "2099-01-01",
+        amount: 10,
+        note: "",
+      }),
+    ).rejects.toThrow(/cannot be in the future/);
+  });
+
+  it("keeps a payment from settling an invoice and an opening balance at once", async () => {
+    const insert = [
+      "insert into public.payments(id,owner_id,invoice_id,customer_id,date,amount,method) values($1,$2,$3,$4,$5,$6,$7)",
+      [
+        "30000000-0000-4000-8000-000000000052",
+        userA,
+        inv,
+        openingCustomer,
+        "2026-02-02",
+        1,
+        "Cash",
+      ],
+    ] as const;
+    // The browser role cannot write payments at all; only the RPC may.
+    await asUser(userA);
+    await expect(db.query(insert[0], [...insert[1]])).rejects.toThrow(
+      /permission denied/,
+    );
+    // And even with table rights, the two targets are mutually exclusive.
+    await db.exec("reset role");
+    await expect(db.query(insert[0], [...insert[1]])).rejects.toThrow(
+      /payments_one_target/,
+    );
+  });
+
+  it("clears an untouched opening balance", async () => {
+    await asUser(userA);
+    await rpc("save_opening_balance", {
+      customer_id: customerA,
+      date: "2026-01-01",
+      amount: 900,
+      note: "",
+    });
+    await rpc("save_opening_balance", {
+      customer_id: customerA,
+      date: "2026-01-01",
+      amount: 0,
+      note: "",
+    });
+    const r = await db.query(
+      "select 1 from public.opening_balances where customer_id=$1",
+      [customerA],
+    );
+    expect(r.rows).toHaveLength(0);
+  });
+});
+
+describe("business logo", () => {
+  it("keeps the logo out of the invoice snapshot", async () => {
+    await asUser(userA);
+    const logo = "data:image/png;base64," + "A".repeat(2000);
+    await db.query(
+      "update public.business_profiles set details = details || $1::jsonb where owner_id=$2",
+      [JSON.stringify({ logo }), userA],
+    );
+    const id = "20000000-0000-4000-8000-000000000099";
+    await rpc("create_invoice", { ...invoice(id), deposit: 0 });
+    const r = await db.query<{ has_logo: boolean }>(
+      "select (business ? 'logo') as has_logo from public.invoices where id=$1",
+      [id],
+    );
+    // Branding is not a financial fact, and one image per invoice would bloat the table.
+    expect(r.rows[0].has_logo).toBe(false);
+  });
+
+  it("refuses a logo larger than the stored cap", async () => {
+    await asUser(userA);
+    await expect(
+      db.query(
+        "update public.business_profiles set details = details || $1::jsonb where owner_id=$2",
+        [JSON.stringify({ logo: "x".repeat(100001) }), userA],
+      ),
+    ).rejects.toThrow(/business_profiles_logo_size/);
   });
 });

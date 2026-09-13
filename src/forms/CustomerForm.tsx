@@ -1,6 +1,9 @@
 import { useState, type FormEvent } from "react";
 import { Check, Lock, Trash2 } from "lucide-react";
-import type { Customer } from "../domain";
+import NumberField from "../components/NumberField";
+import { money, today, type Customer, type OpeningBalance } from "../domain";
+
+export type OpeningInput = { amount: number; date: string; note: string };
 
 export default function CustomerForm({
   customer,
@@ -8,13 +11,18 @@ export default function CustomerForm({
   onSave,
   onDelete,
   invoiceCount = 0,
+  opening,
+  openingSettled = 0,
 }: {
   customer?: Customer;
   busy: boolean;
-  onSave: (c: Customer) => Promise<void>;
+  onSave: (c: Customer, opening: OpeningInput) => Promise<void>;
   /** Omitted when the customer has invoices and so cannot be deleted. */
   onDelete?: () => void;
   invoiceCount?: number;
+  opening?: OpeningBalance;
+  /** Money already received against the opening balance; it cannot go below this. */
+  openingSettled?: number;
 }) {
   const [form, setForm] = useState<Customer>(
     customer ?? {
@@ -26,12 +34,17 @@ export default function CustomerForm({
       brn: "",
     },
   );
+  const [owed, setOwed] = useState<OpeningInput>({
+    amount: opening?.amount ?? 0,
+    date: opening?.date ?? today(),
+    note: opening?.note ?? "",
+  });
   return (
     <form
       className="form-body"
       onSubmit={(e) => {
         e.preventDefault();
-        void onSave({ ...form, name: form.name.trim() });
+        void onSave({ ...form, name: form.name.trim() }, owed);
       }}
     >
       <p className="form-intro">
@@ -60,6 +73,54 @@ export default function CustomerForm({
           </label>
         ))}
       </div>
+      {/* The migration aid: what this customer already owed when the paper book
+          was closed. It is not an invoice and is never printed or sent. */}
+      <div className="form-section-heading">
+        <h3>Owed before Opervia</h3>
+        <span>Optional</span>
+      </div>
+      <p className="form-intro">
+        If this customer already owed you money before you started using
+        Opervia, record it here. It appears on the ledger and counts toward what
+        you are owed. No invoice is created and nothing is sent to the customer.
+      </p>
+      <div className="form-grid three">
+        <label>
+          Amount owed (MUR)
+          <NumberField
+            min="0"
+            max="100000000"
+            step="0.01"
+            value={owed.amount}
+            onValue={(amount) => setOwed({ ...owed, amount })}
+          />
+        </label>
+        <label>
+          As at
+          <input
+            type="date"
+            max={today()}
+            value={owed.date}
+            onChange={(e) => setOwed({ ...owed, date: e.target.value })}
+          />
+        </label>
+        <label>
+          Note
+          <input
+            maxLength={200}
+            placeholder="e.g. Carried over from the invoice book"
+            value={owed.note}
+            onChange={(e) => setOwed({ ...owed, note: e.target.value })}
+          />
+        </label>
+      </div>
+      {openingSettled > 0 && (
+        <p className="footer-note">
+          <Lock size={13} />
+          {money(openingSettled)} has been received against this opening
+          balance, so it cannot be lowered below that or removed.
+        </p>
+      )}
       <div className="form-footer">
         {/* Delete is offered only for an existing customer with no invoices.
             Once invoiced, the customer is part of the financial record. */}

@@ -1,16 +1,22 @@
 import { ChevronRight, LogOut, Settings } from "lucide-react";
+import ThemeSwitch from "./ThemeSwitch";
+import type { Theme } from "../lib/theme";
 import type { Page } from "../lib/nav";
 
 export default function Topbar({
   page,
   demo,
   email,
+  theme,
+  onTheme,
   go,
   logout,
 }: {
   page: Page;
   demo: boolean;
   email?: string;
+  theme: Theme;
+  onTheme: (t: Theme) => void;
   go: (p: Page) => void;
   logout: () => void;
 }) {
@@ -34,6 +40,7 @@ export default function Topbar({
           <i />
           {demo ? "Demo mode" : "Cloud workspace"}
         </span>
+        <ThemeSwitch theme={theme} onChange={onTheme} compact />
         {/* Settings leaves the bottom bar: it is configured once, not daily.
             Sign-out follows it here so both stay reachable without a drawer. */}
         <button
