@@ -131,8 +131,10 @@ test("search, blank invoice, void and demo reset", async ({
     .getByRole("button", { name: /Invoices/ })
     .click();
   await page.getByLabel("Search invoices").fill("nothing-matches");
+  // Filtering to nothing is not the same as having no invoices, and the empty
+  // state now says which one it is.
   await expect(
-    page.getByRole("heading", { name: "No invoices here yet" }),
+    page.getByRole("heading", { name: "No invoices match these filters" }),
   ).toBeVisible();
   await page.getByLabel("Search invoices").fill("OP-1003");
   await page.getByRole("button", { name: "View OP-1003" }).click();
@@ -354,4 +356,72 @@ test("an invoiced customer cannot be deleted, and is told why", async ({
   await expect(
     dialog.getByRole("button", { name: "Delete customer" }),
   ).toHaveCount(0);
+});
+
+test("filters narrow the list and report the real total", async ({
+  page,
+}, testInfo) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Explore the demo" }).click();
+  await page
+    .locator(testInfo.project.name === "mobile" ? ".bottom-nav" : ".sidebar nav")
+    .getByRole("button", { name: /Invoices/ })
+    .click();
+
+  const rows = page.locator(".invoice-list-table tbody tr");
+  await expect(rows).toHaveCount(3);
+
+  // Status comes from the server's derived value, not a client guess.
+  await page.getByRole("button", { name: "Overdue", exact: true }).click();
+  await expect(rows).toHaveCount(1);
+  await expect(rows.first()).toContainText("Overdue");
+
+  await page.getByRole("button", { name: "All", exact: true }).click();
+  await expect(rows).toHaveCount(3);
+
+  // Customer filter.
+  await page
+    .getByLabel("Customer", { exact: true })
+    .selectOption({ label: "Coastal Kitchen" });
+  await expect(rows).toHaveCount(1);
+
+  // A date range that excludes everything shows the filtered empty state,
+  // which is a different message from having no invoices at all.
+  // Exact: "To" also appears inside a customer option ("Coastal Kitchen").
+  await page.getByLabel("From", { exact: true }).fill("2020-01-01");
+  await page.getByLabel("To", { exact: true }).fill("2020-01-31");
+  await expect(
+    page.getByRole("heading", { name: "No invoices match these filters" }),
+  ).toBeVisible();
+
+  // One control clears every filter and restores the full list.
+  await page.getByRole("button", { name: /Clear \d+ filters/ }).click();
+  await expect(rows).toHaveCount(3);
+});
+
+test("expenses filter by category and report the filtered sum", async ({
+  page,
+}, testInfo) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Explore the demo" }).click();
+  await page
+    .locator(testInfo.project.name === "mobile" ? ".bottom-nav" : ".sidebar nav")
+    .getByRole("button", { name: /Expenses/ })
+    .click();
+
+  const rows = page.locator(".data-table tbody tr");
+  await expect(rows).toHaveCount(1);
+
+  // A category with no records shows the filtered empty state.
+  await page.getByLabel("Category").selectOption("Rent");
+  await expect(
+    page.getByRole("heading", { name: "No expenses match these filters" }),
+  ).toBeVisible();
+
+  // The heading reports the sum of what matched, not of everything.
+  await page.getByLabel("Category").selectOption("Transport");
+  await expect(rows).toHaveCount(1);
+  await expect(page.locator(".panel-heading")).toContainText(
+    "Matching these filters",
+  );
 });

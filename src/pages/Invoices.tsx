@@ -1,28 +1,56 @@
-import { Search } from "lucide-react";
 import InvoiceTable from "../components/InvoiceTable";
-import type { Invoice, Payment } from "../domain";
+import FilterBar from "../components/FilterBar";
+import Pager from "../components/Pager";
+import type { Customer, InvoiceRow, Page } from "../domain";
 
-const FILTERS = ["All", "Unpaid", "Partial", "Paid", "Overdue", "Void"];
+const STATUSES = ["All", "Unpaid", "Partial", "Paid", "Overdue", "Void"];
 
 export default function Invoices({
-  invoices,
-  payments,
+  page,
+  loading,
+  customers,
   filter,
   setFilter,
+  customerId,
+  setCustomerId,
   search,
   setSearch,
+  from,
+  to,
+  setRange,
+  onClearFilters,
+  limit,
+  offset,
+  setOffset,
   onOpen,
   onNew,
 }: {
-  invoices: Invoice[];
-  payments: Payment[];
+  /** One page of results plus the true total of the filtered set. */
+  page: Page<InvoiceRow> | null;
+  loading: boolean;
+  customers: Customer[];
   filter: string;
   setFilter: (f: string) => void;
+  customerId: string;
+  setCustomerId: (id: string) => void;
   search: string;
   setSearch: (s: string) => void;
-  onOpen: (i: Invoice) => void;
+  from: string;
+  to: string;
+  setRange: (from: string, to: string) => void;
+  onClearFilters: () => void;
+  limit: number;
+  offset: number;
+  setOffset: (n: number) => void;
+  onOpen: (i: InvoiceRow) => void;
   onNew: () => void;
 }) {
+  const active =
+    (filter !== "All" ? 1 : 0) +
+    (customerId ? 1 : 0) +
+    (search ? 1 : 0) +
+    (from ? 1 : 0) +
+    (to ? 1 : 0);
   return (
     <section className="panel">
       <div className="list-toolbar">
@@ -31,7 +59,7 @@ export default function Invoices({
           role="group"
           aria-label="Filter invoices by status"
         >
-          {FILTERS.map((f) => (
+          {STATUSES.map((f) => (
             <button
               type="button"
               className={filter === f ? "active" : ""}
@@ -43,21 +71,47 @@ export default function Invoices({
             </button>
           ))}
         </div>
-        <div className="search-box">
-          <Search size={17} />
-          <input
-            aria-label="Search invoices"
-            placeholder="Search invoices…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-        </div>
       </div>
-      <InvoiceTable
-        invoices={invoices}
-        payments={payments}
-        onOpen={onOpen}
-        onNew={onNew}
+      <FilterBar
+        search={search}
+        setSearch={setSearch}
+        searchLabel="Search invoices"
+        from={from}
+        to={to}
+        setRange={setRange}
+        active={active}
+        onClear={onClearFilters}
+      >
+        <div className="filter-select">
+          <label htmlFor="filter-customer">Customer</label>
+          <select
+            id="filter-customer"
+            value={customerId}
+            onChange={(e) => setCustomerId(e.target.value)}
+          >
+            <option value="">All customers</option>
+            {customers.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      </FilterBar>
+      <div className={loading ? "list-loading" : ""}>
+        <InvoiceTable
+          invoices={page?.rows ?? []}
+          onOpen={onOpen}
+          onNew={onNew}
+          filtered={active > 0}
+        />
+      </div>
+      <Pager
+        total={page?.total ?? 0}
+        limit={limit}
+        offset={offset}
+        onOffset={setOffset}
+        noun="invoices"
       />
     </section>
   );

@@ -11,14 +11,14 @@ import {
 } from "lucide-react";
 import Stat from "../components/Stat";
 import InvoiceTable from "../components/InvoiceTable";
-import { balance, money, roundMoney, type Data, type Invoice } from "../domain";
+import { money, roundMoney, type InvoiceRow, type Summary } from "../domain";
 import type { Page } from "../lib/nav";
 
 export default function Overview({
-  data,
   demo,
-  valid,
-  overdue,
+  totals,
+  recent,
+  loading,
   outstanding,
   openingOwed,
   received,
@@ -30,10 +30,11 @@ export default function Overview({
   onAddExpense,
   onReviewOverdue,
 }: {
-  data: Data;
   demo: boolean;
-  valid: Invoice[];
-  overdue: Invoice[];
+  /** Whole-workspace figures from the server; null until the first load lands. */
+  totals: Summary | null;
+  recent: InvoiceRow[];
+  loading: boolean;
   outstanding: number;
   /** Part of `outstanding` that predates Opervia, so the hint can stay truthful. */
   openingOwed: number;
@@ -41,11 +42,13 @@ export default function Overview({
   expenses: number;
   go: (p: Page) => void;
   openNew: () => void;
-  onOpenInvoice: (i: Invoice) => void;
+  onOpenInvoice: (i: InvoiceRow) => void;
   onAddCustomer: () => void;
   onAddExpense: () => void;
   onReviewOverdue: () => void;
 }) {
+  const unpaidCount = totals?.unpaidCount ?? 0;
+  const overdueCount = totals?.overdueCount ?? 0;
   return (
     <>
       <section className="stats-grid">
@@ -54,8 +57,8 @@ export default function Overview({
           value={money(outstanding)}
           hint={
             openingOwed > 0
-              ? `${valid.filter((i) => balance(i, data.payments) > 0).length} invoices, plus ${money(openingOwed)} from before Opervia`
-              : `${valid.filter((i) => balance(i, data.payments) > 0).length} invoices awaiting payment`
+              ? `${unpaidCount} invoices, plus ${money(openingOwed)} from before Opervia`
+              : `${unpaidCount} invoices awaiting payment`
           }
           icon={<FileText size={19} />}
           featured
@@ -69,7 +72,7 @@ export default function Overview({
         <Stat
           title="Business expenses"
           value={money(expenses)}
-          hint={`${data.expenses.length} expenses recorded`}
+          hint={`${totals?.expenseCount ?? 0} expenses recorded`}
           icon={<ArrowUpRight size={20} />}
         />
         <Stat
@@ -94,14 +97,13 @@ export default function Overview({
               View all <ArrowRight size={15} />
             </button>
           </div>
-          <InvoiceTable
-            invoices={[...data.invoices]
-              .sort((a, b) => b.date.localeCompare(a.date))
-              .slice(0, 5)}
-            payments={data.payments}
-            onOpen={onOpenInvoice}
-            onNew={openNew}
-          />
+          <div className={loading ? "list-loading" : ""}>
+            <InvoiceTable
+              invoices={recent}
+              onOpen={onOpenInvoice}
+              onNew={openNew}
+            />
+          </div>
         </div>
         <div className="right-stack">
           <div className="collect-card">
@@ -109,17 +111,13 @@ export default function Overview({
               <Receipt size={23} />
             </div>
             <span className="eyebrow">A GENTLE REMINDER</span>
-            <h2>{overdue.length ? "Time to follow up." : "Looking good."}</h2>
+            <h2>{overdueCount ? "Time to follow up." : "Looking good."}</h2>
             <p>
-              {overdue.length
-                ? `${overdue.length} ${overdue.length === 1 ? "invoice is" : "invoices are"} past the due date. A friendly reminder can go a long way.`
+              {overdueCount
+                ? `${overdueCount} ${overdueCount === 1 ? "invoice is" : "invoices are"} past the due date. A friendly reminder can go a long way.`
                 : "No overdue invoices. Keep your books up to date as your business grows."}
             </p>
-            <strong>
-              {money(
-                overdue.reduce((s, i) => s + balance(i, data.payments), 0),
-              )}
-            </strong>
+            <strong>{money(totals?.overdueAmount ?? 0)}</strong>
             <button type="button" onClick={onReviewOverdue}>
               Review overdue invoices <ArrowRight size={16} />
             </button>

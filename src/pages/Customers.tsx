@@ -1,28 +1,20 @@
 import { ChevronRight, Search } from "lucide-react";
 import Empty from "../components/Empty";
-import {
-  balance,
-  money,
-  openingOutstanding,
-  type Customer,
-  type Data,
-  type Invoice,
-  type Payment,
-} from "../domain";
+import { money, type Customer } from "../domain";
 
 export default function Customers({
   customers,
-  valid,
-  payments,
-  data,
+  balances,
+  openings,
   search,
   setSearch,
   onOpen,
 }: {
   customers: Customer[];
-  valid: Invoice[];
-  payments: Payment[];
-  data: Data;
+  /** Outstanding per customer, summed in SQL rather than from every invoice. */
+  balances: Record<string, number>;
+  /** Which customers carry a pre-Opervia balance, for the card note. */
+  openings: Record<string, number>;
   search: string;
   setSearch: (s: string) => void;
   onOpen: (c: Customer) => void;
@@ -62,19 +54,11 @@ export default function Customers({
               <p>{c.address || "No address added"}</p>
               <div>
                 <span>Outstanding</span>
-                <b>
-                  {money(
-                    valid
-                      .filter((i) => i.customer_id === c.id)
-                      .reduce((s, i) => s + balance(i, payments), 0) +
-                      openingOutstanding(c.id, data),
-                  )}
-                </b>
+                <b>{money(balances[c.id] ?? 0)}</b>
               </div>
-              {openingOutstanding(c.id, data) > 0 && (
+              {(openings[c.id] ?? 0) > 0 && (
                 <small className="card-note">
-                  Includes {money(openingOutstanding(c.id, data))} owed from
-                  before Opervia
+                  Includes {money(openings[c.id])} owed from before Opervia
                 </small>
               )}
             </button>

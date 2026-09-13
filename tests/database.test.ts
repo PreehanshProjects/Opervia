@@ -46,6 +46,7 @@ beforeAll(async () => {
     "202609140001_mauritius_today.sql",
     "202609140002_opening_balances.sql",
     "202609140003_business_logo.sql",
+    "202609140004_server_queries.sql",
   ])
     await db.exec(
       readFileSync(
@@ -494,5 +495,118 @@ describe("business logo", () => {
         [JSON.stringify({ logo: "x".repeat(100001) }), userA],
       ),
     ).rejects.toThrow(/business_profiles_logo_size/);
+  });
+});
+
+describe("server-side queries", () => {
+  const qCust = "10000000-0000-4000-8000-000000000060";
+  const ids = (n: number) =>
+    `20000000-0000-4000-8000-0000000001${String(n).padStart(2, "0")}`;
+
+  beforeAll(async () => {
+    await asUser(userA);
+    await db.query(
+      "insert into public.customers(id,owner_id,name) values($1,$2,$3)",
+      [qCust, userA, "Query Customer"],
+    );
+    // Twelve invoices on distinct dates, so paging boundaries are unambiguous.
+    for (let n = 1; n <= 12; n++)
+      await rpc("create_invoice", {
+        id: ids(n),
+        customer_id: qCust,
+        date: `2026-03-${String(n).padStart(2, "0")}`,
+        due_date: `2026-04-${String(n).padStart(2, "0")}`,
+        items: [
+          { description: `Item ${n}`, quantity: 1, price: 100, unit: "pc", section: "" },
+        ],
+        notes: "",
+        tax_rate: 0,
+        deposit: 0,
+        method: "Cash",
+      });
+  }, 30000);
+
+  const call = async (fn: string, payload: unknown = {}) => {
+    const r = await db.query<Record<string, unknown>>(
+      `select public.${fn}($1::jsonb) as out`,
+      [JSON.stringify(payload)],
+    );
+    return r.rows[0].out as {
+      total: number;
+      rows: Record<string, unknown>[];
+      closing?: number;
+      sum?: number;
+    };
+  };
+
+  it("pages invoices and reports the true total, not the page size", async () => {
+    await asUser(userA);
+    const page1 = await call("list_invoices", { customer_id: qCust, limit: 5 });
+    expect(page1.total).toBe(12);
+    expect(page1.rows).toHaveLength(5);
+    const page3 = await call("list_invoices", {
+      customer_id: qCust,
+      limit: 5,
+      offset: 10,
+    });
+    expect(page3.total).toBe(12);
+    expect(page3.rows).toHaveLength(2);
+    // Newest first, and no row appears on two pages.
+    const all = [...page1.rows, ...page3.rows].map((r) => r.number);
+    expect(new Set(all).size).toBe(all.length);
+  });
+
+  it("filters invoices by derived status, date range and search", async () => {
+    await asUser(userA);
+    expect((await call("list_invoices", { status: "Void" })).total).toBe(1);
+    const ranged = await call("list_invoices", {
+      customer_id: qCust,
+      from: "2026-03-03",
+      to: "2026-03-05",
+    });
+    expect(ranged.total).toBe(3);
+    const searched = await call("list_invoices", { search: "Query Customer" });
+    expect(searched.total).toBe(12);
+    expect((await call("list_invoices", { search: "no-such-thing" })).total).toBe(0);
+  });
+
+  it("carries the ledger running balance across page boundaries", async () => {
+    await asUser(userA);
+    const whole = await call("list_ledger", { customer_id: qCust, limit: 500 });
+    expect(whole.total).toBe(12);
+    // Twelve invoices of 100 each, so the balance climbs 100 at a time.
+    expect(whole.rows.map((r) => Number(r.balance))).toEqual(
+      Array.from({ length: 12 }, (_, i) => (i + 1) * 100),
+    );
+    // The page-two balance must continue, not restart at zero.
+    const page2 = await call("list_ledger", {
+      customer_id: qCust,
+      limit: 5,
+      offset: 5,
+    });
+    expect(Number(page2.rows[0].balance)).toBe(600);
+    expect(page2.total).toBe(12);
+    expect(Number(whole.closing)).toBe(1200);
+  });
+
+  it("summarises the whole workspace regardless of paging", async () => {
+    await asUser(userA);
+    const s = (
+      await db.query<{ out: Record<string, number> }>(
+        "select public.workspace_summary() as out",
+      )
+    ).rows[0].out;
+    // 12 unpaid invoices of 100 for the query customer, plus earlier fixtures.
+    expect(s.invoiceOutstanding).toBeGreaterThanOrEqual(1200);
+    expect(s.unpaidCount).toBeGreaterThanOrEqual(12);
+    expect(s.received).toBeGreaterThan(0);
+    expect(typeof s.expenses).toBe("number");
+  });
+
+  it("never returns another account's records", async () => {
+    await asUser(userB);
+    expect((await call("list_invoices", { customer_id: qCust })).total).toBe(0);
+    expect((await call("list_ledger", { customer_id: qCust })).total).toBe(0);
+    expect((await call("list_expenses")).total).toBe(0);
   });
 });

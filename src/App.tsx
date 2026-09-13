@@ -30,6 +30,14 @@ import {
   openingPaid,
   openingOutstanding,
   totalOpeningOutstanding,
+  queryInvoices,
+  queryExpenses,
+  queryLedger,
+  summarise,
+  type ExpenseQuery,
+  type InvoiceQuery,
+  type LedgerQuery,
+  type Summary,
   totals,
   validateInvoice,
   ledger,
@@ -58,6 +66,9 @@ import PaymentForm from "./forms/PaymentForm";
 import ExpenseForm from "./forms/ExpenseForm";
 import { clearRescuedDraft, hasRescuedDraft } from "./lib/draft";
 import { errorText } from "./lib/errors";
+import { useDebounced, useQuery } from "./lib/useQuery";
+import Pager from "./components/Pager";
+import FilterBar from "./components/FilterBar";
 import { isNative, printDocument, saveTextFile } from "./lib/platform";
 import {
   applyTheme,
@@ -67,6 +78,10 @@ import {
 } from "./lib/theme";
 import { initBackButton, initNative, setNativeTheme } from "./lib/native";
 import type { Modal, Page } from "./lib/nav";
+
+/** Rows per page. Tuned for a phone: a page you can thumb through, not scroll. */
+const PAGE = 25;
+const LEDGER_PAGE = 50;
 
 export default function App() {
   const [session, setSession] = useState<Session | null>(null);
@@ -84,7 +99,16 @@ export default function App() {
   const [modal, setModal] = useState<Modal>(null);
   const [selected, setSelected] = useState<Invoice | null>(null);
   const [search, setSearch] = useState("");
+  // Typing must not fire a query per keystroke.
+  const debouncedSearch = useDebounced(search.trim(), 300);
   const [filter, setFilter] = useState("All");
+  const [invoiceCustomer, setInvoiceCustomer] = useState("");
+  const [expenseCategory, setExpenseCategory] = useState("All");
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
+  const [invoiceOffset, setInvoiceOffset] = useState(0);
+  const [expenseOffset, setExpenseOffset] = useState(0);
+  const [ledgerOffset, setLedgerOffset] = useState(0);
   const [ledgerCustomer, setLedgerCustomer] = useState("");
   const [customerEdit, setCustomerEdit] = useState<Customer | undefined>();
   const [expenseEdit, setExpenseEdit] = useState<Expense | undefined>();
@@ -104,6 +128,9 @@ export default function App() {
     | { kind: "expense"; expense: Expense }
     | null
   >(null);
+  const [summary, setSummary] = useState<Summary | null>(null);
+  // Bumped after every write; the list views watch it and reload their page.
+  const [dataVersion, setDataVersion] = useState(0);
   const [theme, setTheme] = useState<Theme>(readTheme);
   const [sessionEnded, setSessionEnded] = useState(false);
   const deliberateSignOut = useRef(false);
@@ -163,6 +190,13 @@ export default function App() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
   useEffect(() => setScrolled(window.scrollY > 150), [page]);
+  // A filter change always returns to page one: staying on page 4 of a narrower
+  // result set shows an empty table and reads as "no records".
+  useEffect(() => {
+    setInvoiceOffset(0);
+    setExpenseOffset(0);
+    setLedgerOffset(0);
+  }, [debouncedSearch, filter, invoiceCustomer, expenseCategory, from, to, ledgerCustomer]);
   // Theme: apply on change, and follow the device while set to "system".
   useEffect(() => {
     const resolved = applyTheme(theme, true);
@@ -210,8 +244,16 @@ export default function App() {
     setLoading(true);
     setError("");
     try {
-      const next = await api.loadData();
-      if (generation === loadGeneration.current) setData(next);
+      // Reference data and the headline figures. Transactions are queried per
+      // view, so opening a workspace with years of history costs the same as an
+      // empty one.
+      const [next, totals] = await Promise.all([
+        api.loadReference(),
+        api.loadSummary(),
+      ]);
+      if (generation !== loadGeneration.current) return;
+      setData(next);
+      setSummary(totals);
     } catch (e) {
       if (generation === loadGeneration.current) setError(errorText(e));
     } finally {
@@ -231,6 +273,9 @@ export default function App() {
     try {
       await work();
       setNotice(success);
+      // Every successful write invalidates the list views. Doing it here rather
+      // than in sync() covers demo mode too, which writes to state directly.
+      setDataVersion((v) => v + 1);
       return true;
     } catch (e) {
       setError(errorText(e));
@@ -245,13 +290,20 @@ export default function App() {
     if (!last || busy) return;
     await act(last.work, last.success);
   }
+  /**
+   * Called after every write. It refreshes reference data and the headline
+   * figures, then bumps a token the list views watch, so each reloads only its
+   * own page instead of the whole workspace being fetched again.
+   */
   async function sync() {
-    if (!demo) {
-      const next = await api.loadData();
-      setData(next);
-      return next;
-    }
-    return data;
+    if (demo) return data;
+    const [next, figuresNext] = await Promise.all([
+      api.loadReference(),
+      api.loadSummary(),
+    ]);
+    setData(next);
+    setSummary(figuresNext);
+    return next;
   }
   async function voidInvoice(invoice: Invoice) {
     const ok = await act(async () => {
@@ -335,7 +387,22 @@ export default function App() {
     setPage(p);
     setSearch("");
     setFilter("All");
+    setInvoiceCustomer("");
+    setExpenseCategory("All");
+    setFrom("");
+    setTo("");
+    setInvoiceOffset(0);
+    setExpenseOffset(0);
+    setLedgerOffset(0);
     window.scrollTo({ top: 0 });
+  }
+  function clearFilters() {
+    setSearch("");
+    setFilter("All");
+    setInvoiceCustomer("");
+    setExpenseCategory("All");
+    setFrom("");
+    setTo("");
   }
   function openNew() {
     setTemplate(null);
@@ -395,32 +462,100 @@ export default function App() {
       go("Overview");
     }, "Signed out");
   }
-  const valid = data.invoices.filter((i) => !i.voided);
-  // What is owed from before Opervia counts too, or the figure understates the
-  // debt for anyone who migrated from a paper book.
-  const openingOwed = totalOpeningOutstanding(data);
+  // Headline figures come from the server so they cover the whole workspace,
+  // never just the page on screen. Demo computes the same shape in memory.
+  const figures = demo ? summarise(data) : summary;
   const outstanding = roundMoney(
-    valid.reduce((s, i) => s + balance(i, data.payments), 0) + openingOwed,
+    (figures?.invoiceOutstanding ?? 0) + (figures?.openingOutstanding ?? 0),
   );
-  const received = roundMoney(data.payments.reduce((s, p) => s + p.amount, 0));
-  const expenses = roundMoney(data.expenses.reduce((s, e) => s + e.amount, 0));
-  const overdue = valid.filter((i) => status(i, data.payments) === "Overdue");
+  const openingOwed = figures?.openingOutstanding ?? 0;
+  const received = figures?.received ?? 0;
+  const expenses = figures?.expenses ?? 0;
+
+  // Invoices: one page, filtered and counted on the server.
+  const invoiceQuery: InvoiceQuery = {
+    status: filter,
+    customer_id: invoiceCustomer || undefined,
+    from: from || undefined,
+    to: to || undefined,
+    search: debouncedSearch || undefined,
+    limit: PAGE,
+    offset: invoiceOffset,
+  };
+  const invoicePage = useQuery(
+    () =>
+      demo
+        ? Promise.resolve(queryInvoices(data, invoiceQuery))
+        : api.listInvoices(invoiceQuery),
+    JSON.stringify([invoiceQuery, demo, dataVersion, page === "Invoices"]),
+    page === "Invoices" || page === "Overview",
+  );
+  // Overview shows the five most recent, unfiltered.
+  const recentQuery: InvoiceQuery = { limit: 5, offset: 0 };
+  const recentPage = useQuery(
+    () =>
+      demo
+        ? Promise.resolve(queryInvoices(data, recentQuery))
+        : api.listInvoices(recentQuery),
+    JSON.stringify(["recent", demo, dataVersion]),
+    page === "Overview",
+  );
+  const expenseQuery: ExpenseQuery = {
+    category: expenseCategory,
+    from: from || undefined,
+    to: to || undefined,
+    search: debouncedSearch || undefined,
+    limit: PAGE,
+    offset: expenseOffset,
+  };
+  const expensePage = useQuery(
+    () =>
+      demo
+        ? Promise.resolve(queryExpenses(data, expenseQuery))
+        : api.listExpenses(expenseQuery),
+    JSON.stringify([expenseQuery, demo, dataVersion]),
+    page === "Expenses",
+  );
+  const ledgerQuery: LedgerQuery = {
+    customer_id: ledgerCustomer || undefined,
+    from: from || undefined,
+    to: to || undefined,
+    limit: LEDGER_PAGE,
+    offset: ledgerOffset,
+  };
+  const ledgerPage = useQuery(
+    () =>
+      demo
+        ? Promise.resolve(queryLedger(data, ledgerQuery))
+        : api.listLedger(ledgerQuery),
+    JSON.stringify([ledgerQuery, demo, dataVersion]),
+    page === "Ledger",
+  );
+  const balanceQuery = useQuery(
+    () =>
+      demo
+        ? Promise.resolve(
+            Object.fromEntries(
+              data.customers.map((c) => [
+                c.id,
+                roundMoney(
+                  data.invoices
+                    .filter((i) => !i.voided && i.customer_id === c.id)
+                    .reduce((s, i) => s + balance(i, data.payments), 0) +
+                    openingOutstanding(c.id, data),
+                ),
+              ]),
+            ),
+          )
+        : api.loadCustomerBalances(),
+    JSON.stringify(["balances", demo, dataVersion]),
+    page === "Customers",
+  );
+  const customerBalances = balanceQuery.data ?? {};
   const currentInvoice = selected
-    ? (data.invoices.find((i) => i.id === selected.id) ?? selected)
+    ? ((invoicePage.data?.rows.find((i) => i.id === selected.id) ??
+        selected) as Invoice)
     : undefined;
-  const visibleInvoices = data.invoices
-    .filter(
-      (i) =>
-        (filter === "All" || status(i, data.payments) === filter) &&
-        `${i.number} ${i.customer.name}`
-          .toLowerCase()
-          .includes(search.toLowerCase()),
-    )
-    .sort(
-      (a, b) =>
-        b.date.localeCompare(a.date) || b.number.localeCompare(a.number),
-    );
-  const ledgerRows = ledger(data, ledgerCustomer);
   const openInvoice = (i: Invoice) => {
     setSelected(i);
     setModal("invoice");
@@ -551,7 +686,7 @@ export default function App() {
                         "Credit MUR",
                         "Balance MUR",
                       ],
-                      ...ledgerRows.map((r) => [
+                      ...(ledgerPage.data?.rows ?? []).map((r) => [
                         r.date,
                         r.label,
                         r.detail,
@@ -594,10 +729,10 @@ export default function App() {
             <>
               {page === "Overview" && (
                 <Overview
-                  data={data}
                   demo={demo}
-                  valid={valid}
-                  overdue={overdue}
+                  totals={figures}
+                  recent={recentPage.data?.rows ?? []}
+                  loading={recentPage.loading}
                   outstanding={outstanding}
                   openingOwed={openingOwed}
                   received={received}
@@ -615,19 +750,42 @@ export default function App() {
               )}
               {page === "Invoices" && (
                 <Invoices
-                  invoices={visibleInvoices}
-                  payments={data.payments}
+                  page={invoicePage.data}
+                  loading={invoicePage.loading}
+                  customers={data.customers}
                   filter={filter}
                   setFilter={setFilter}
+                  customerId={invoiceCustomer}
+                  setCustomerId={setInvoiceCustomer}
                   search={search}
                   setSearch={setSearch}
+                  from={from}
+                  to={to}
+                  setRange={(f, t) => {
+                    setFrom(f);
+                    setTo(t);
+                  }}
+                  onClearFilters={clearFilters}
+                  limit={PAGE}
+                  offset={invoiceOffset}
+                  setOffset={setInvoiceOffset}
                   onOpen={openInvoice}
                   onNew={openNew}
                 />
               )}
               {page === "Ledger" && (
                 <Ledger
-                  rows={ledgerRows}
+                  page={ledgerPage.data}
+                  loading={ledgerPage.loading}
+                  limit={LEDGER_PAGE}
+                  offset={ledgerOffset}
+                  setOffset={setLedgerOffset}
+                  from={from}
+                  to={to}
+                  setRange={(f, t) => {
+                    setFrom(f);
+                    setTo(t);
+                  }}
                   customers={data.customers}
                   ledgerCustomer={ledgerCustomer}
                   setLedgerCustomer={setLedgerCustomer}
@@ -656,9 +814,13 @@ export default function App() {
               {page === "Customers" && (
                 <Customers
                   customers={data.customers}
-                  valid={valid}
-                  payments={data.payments}
-                  data={data}
+                  balances={customerBalances}
+                  openings={Object.fromEntries(
+                    data.openings.map((o) => [
+                      o.customer_id,
+                      openingOutstanding(o.customer_id, data),
+                    ]),
+                  )}
                   search={search}
                   setSearch={setSearch}
                   onOpen={(c) => {
@@ -669,8 +831,23 @@ export default function App() {
               )}
               {page === "Expenses" && (
                 <Expenses
-                  expenses={data.expenses}
-                  total={expenses}
+                  page={expensePage.data}
+                  loading={expensePage.loading}
+                  allTotal={expenses}
+                  category={expenseCategory}
+                  setCategory={setExpenseCategory}
+                  search={search}
+                  setSearch={setSearch}
+                  from={from}
+                  to={to}
+                  setRange={(f, t) => {
+                    setFrom(f);
+                    setTo(t);
+                  }}
+                  onClearFilters={clearFilters}
+                  limit={PAGE}
+                  offset={expenseOffset}
+                  setOffset={setExpenseOffset}
                   onOpen={(e) => {
                     setExpenseEdit(e);
                     setModal("expense");

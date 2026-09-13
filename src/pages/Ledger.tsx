@@ -1,18 +1,26 @@
 import Empty from "../components/Empty";
 import OpeningPaymentForm from "../forms/OpeningPaymentForm";
+import FilterBar from "../components/FilterBar";
+import Pager from "../components/Pager";
 import {
   dateLabel,
   money,
   type Customer,
-  type ledger,
+  type LedgerRow,
   type OpeningBalance,
+  type Page,
   type Payment,
 } from "../domain";
 
-type LedgerRow = ReturnType<typeof ledger>[number];
-
 export default function Ledger({
-  rows,
+  page,
+  loading,
+  limit,
+  offset,
+  setOffset,
+  from,
+  to,
+  setRange,
   customers,
   ledgerCustomer,
   setLedgerCustomer,
@@ -21,7 +29,15 @@ export default function Ledger({
   busy,
   onRecordOpeningPayment,
 }: {
-  rows: LedgerRow[];
+  /** One page of entries, with the running balance spanning the whole set. */
+  page: (Page<LedgerRow> & { closing: number }) | null;
+  loading: boolean;
+  limit: number;
+  offset: number;
+  setOffset: (n: number) => void;
+  from: string;
+  to: string;
+  setRange: (from: string, to: string) => void;
   customers: Customer[];
   ledgerCustomer: string;
   setLedgerCustomer: (id: string) => void;
@@ -36,7 +52,7 @@ export default function Ledger({
       <div className="ledger-summary">
         <div>
           <span>CUSTOMER BALANCE</span>
-          <h2>{money(rows.at(-1)?.balance ?? 0)}</h2>
+          <h2>{money(page?.closing ?? 0)}</h2>
           <p>Invoices less payments · expenses shown separately</p>
         </div>
         <label>
@@ -68,8 +84,18 @@ export default function Ledger({
         />
       )}
       <section className="panel">
-        {rows.length ? (
-          <div className="table-scroll">
+        <FilterBar
+          search=""
+          setSearch={() => {}}
+          searchLabel="Search the ledger"
+          from={from}
+          to={to}
+          setRange={setRange}
+          active={(from ? 1 : 0) + (to ? 1 : 0)}
+          onClear={() => setRange("", "")}
+        />
+        {page?.rows.length ? (
+          <div className={`table-scroll ${loading ? "list-loading" : ""}`}>
             <table className="data-table">
               <thead>
                 <tr>
@@ -81,7 +107,7 @@ export default function Ledger({
                 </tr>
               </thead>
               <tbody>
-                {rows.map((r) => (
+                {page.rows.map((r) => (
                   <tr key={r.id}>
                     <td>{dateLabel(r.date)}</td>
                     <td>
@@ -102,10 +128,21 @@ export default function Ledger({
           </div>
         ) : (
           <Empty
-            title="A clean page"
-            detail="Invoices and payments will appear here automatically."
+            title={from || to ? "Nothing in this period" : "A clean page"}
+            detail={
+              from || to
+                ? "Try a wider date range, or clear the dates to see everything."
+                : "Invoices and payments will appear here automatically."
+            }
           />
         )}
+        <Pager
+          total={page?.total ?? 0}
+          limit={limit}
+          offset={offset}
+          onOffset={setOffset}
+          noun="entries"
+        />
       </section>
     </>
   );

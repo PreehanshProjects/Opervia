@@ -3026,3 +3026,104 @@ nav button.active svg {
       fill 0.28s ease !important;
   }
 }
+
+/* --- Filters and paging --- */
+
+.filter-bar {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 16px 24px;
+  border-top: 1px solid var(--border-soft);
+  border-bottom: 1px solid var(--border-soft);
+  background: var(--surface-sunken);
+}
+.filter-bar .search-box {
+  flex: 1 1 220px;
+  background: var(--surface);
+}
+.search-clear {
+  width: 30px;
+  height: 30px;
+  margin-right: -6px;
+}
+.filter-select,
+.filter-date {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+.filter-select label,
+.filter-date label {
+  letter-spacing: 0.2px;
+  font-size: 11px;
+  font-weight: 600;
+}
+.filter-select select,
+.filter-date input {
+  min-height: 44px;
+  font-size: 13px;
+  background: var(--surface);
+}
+.filter-select select {
+  min-width: 150px;
+}
+.filter-date input {
+  min-width: 140px;
+}
+/* The list dims rather than disappearing: a table that blanks on every
+   keystroke reads as broken even when the query is fast. */
+.list-loading {
+  opacity: 0.55;
+  transition: opacity 0.15s ease;
+  pointer-events: none;
+}
+
+.pager {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 16px 24px;
+  border-top: 1px solid var(--border-soft);
+}
+.pager-count {
+  font-size: 12px;
+  color: var(--ink-soft);
+}
+.pager-count b {
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.pager-controls {
+  display: flex;
+  gap: 9px;
+}
+
+@media (max-width: 760px) {
+  .filter-bar {
+    padding: 14px 16px;
+    gap: 10px;
+  }
+  .filter-select select,
+  .filter-date input {
+    min-width: 0;
+    width: 100%;
+  }
+  .filter-select,
+  .filter-date {
+    flex: 1 1 140px;
+  }
+  .pager {
+    padding: 14px 16px;
+    justify-content: center;
+  }
+  .pager-controls .btn {
+    flex: 1;
+  }
+}

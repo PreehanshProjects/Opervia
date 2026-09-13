@@ -348,3 +348,153 @@ export function toCsv(rows: unknown[][]) {
   );
 }
 export const CSV_MIME = "text/csv;charset=utf-8";
+
+/* ---------------------------------------------------------------------------
+ * Queries
+ *
+ * Demo mode runs entirely in memory, so the same filter, sort and page
+ * semantics have to exist twice: here, and in SQL (list_invoices, list_expenses,
+ * list_ledger, workspace_summary). These functions are the reference for what
+ * those RPCs must do, and are unit tested to match.
+ * ------------------------------------------------------------------------- */
+
+export type InvoiceQuery = {
+  status?: string;
+  customer_id?: string;
+  from?: string;
+  to?: string;
+  search?: string;
+  limit?: number;
+  offset?: number;
+};
+export type ExpenseQuery = Omit<InvoiceQuery, "status" | "customer_id"> & {
+  category?: string;
+};
+export type LedgerQuery = {
+  customer_id?: string;
+  from?: string;
+  to?: string;
+  limit?: number;
+  offset?: number;
+};
+export type Page<T> = { rows: T[]; total: number };
+
+const inRange = (date: string, from?: string, to?: string) =>
+  (!from || date >= from) && (!to || date <= to);
+const slice = <T>(rows: T[], limit = 25, offset = 0): Page<T> => ({
+  total: rows.length,
+  rows: rows.slice(offset, offset + limit),
+});
+
+/**
+ * An invoice as a list row. Balance and status are derived, and the server
+ * computes them in SQL; the demo path attaches the same two fields so the table
+ * renders one shape either way.
+ */
+export type InvoiceRow = Invoice & {
+  balance_due: number;
+  derived_status: string;
+};
+export function queryInvoices(
+  data: Data,
+  q: InvoiceQuery = {},
+): Page<InvoiceRow> {
+  const needle = (q.search ?? "").trim().toLowerCase();
+  const matching = data.invoices
+    .filter(
+      (i) =>
+        (!q.status || q.status === "All" || status(i, data.payments) === q.status) &&
+        (!q.customer_id || i.customer_id === q.customer_id) &&
+        inRange(i.date, q.from, q.to) &&
+        (!needle ||
+          `${i.number} ${i.customer.name}`.toLowerCase().includes(needle)),
+    )
+    .sort(
+      (a, b) =>
+        b.date.localeCompare(a.date) || b.number.localeCompare(a.number),
+    );
+  const page = slice(matching, q.limit, q.offset);
+  return {
+    total: page.total,
+    rows: page.rows.map((i) => ({
+      ...i,
+      balance_due: balance(i, data.payments),
+      derived_status: status(i, data.payments),
+    })),
+  };
+}
+
+export function queryExpenses(
+  data: Data,
+  q: ExpenseQuery = {},
+): Page<Expense> & { sum: number } {
+  const needle = (q.search ?? "").trim().toLowerCase();
+  const matching = data.expenses
+    .filter(
+      (e) =>
+        (!q.category || q.category === "All" || e.category === q.category) &&
+        inRange(e.date, q.from, q.to) &&
+        (!needle || e.description.toLowerCase().includes(needle)),
+    )
+    .sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id));
+  return {
+    ...slice(matching, q.limit, q.offset),
+    sum: roundMoney(
+      matching.reduce((s, e) => s.plus(e.amount), new Decimal(0)),
+    ),
+  };
+}
+
+/** The ledger, paged. The running balance is computed over the whole set first. */
+export function queryLedger(
+  data: Data,
+  q: LedgerQuery = {},
+): Page<LedgerRow> & { closing: number } {
+  const all = ledger(data, q.customer_id ?? "").filter((r) =>
+    inRange(r.date, q.from, q.to),
+  );
+  // Re-run the balance when a date range cut the earlier rows away, so the
+  // opening figure reflects what the filtered view actually shows.
+  const rows =
+    q.from || q.to
+      ? (() => {
+          let running = new Decimal(0);
+          return all.map((r) => {
+            running = running.plus(r.debit).minus(r.credit);
+            return { ...r, balance: roundMoney(running) };
+          });
+        })()
+      : all;
+  return {
+    ...slice(rows, q.limit ?? 50, q.offset),
+    closing: rows.at(-1)?.balance ?? 0,
+  };
+}
+
+/** Every headline figure, over the whole workspace. Mirrors workspace_summary(). */
+export function summarise(data: Data) {
+  const live = data.invoices.filter((i) => !i.voided);
+  const unpaid = live.filter((i) => balance(i, data.payments) > 0);
+  const overdue = unpaid.filter((i) => i.due_date < today());
+  return {
+    invoiceOutstanding: roundMoney(
+      unpaid.reduce((s, i) => s.plus(balance(i, data.payments)), new Decimal(0)),
+    ),
+    openingOutstanding: totalOpeningOutstanding(data),
+    unpaidCount: unpaid.length,
+    invoiceCount: live.length,
+    overdueCount: overdue.length,
+    overdueAmount: roundMoney(
+      overdue.reduce((s, i) => s.plus(balance(i, data.payments)), new Decimal(0)),
+    ),
+    received: roundMoney(
+      data.payments.reduce((s, p) => s.plus(p.amount), new Decimal(0)),
+    ),
+    expenses: roundMoney(
+      data.expenses.reduce((s, e) => s.plus(e.amount), new Decimal(0)),
+    ),
+    expenseCount: data.expenses.length,
+    customerCount: data.customers.length,
+  };
+}
+export type Summary = ReturnType<typeof summarise>;

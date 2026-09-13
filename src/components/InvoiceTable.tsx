@@ -1,28 +1,33 @@
 import { ChevronRight, Plus } from "lucide-react";
 import Empty from "./Empty";
-import {
-  balance,
-  dateLabel,
-  money,
-  status,
-  type Invoice,
-  type Payment,
-} from "../domain";
+import { dateLabel, money, type InvoiceRow } from "../domain";
 
-/** The invoice list, shared by Overview (latest five) and Invoices (all). */
+/**
+ * The invoice list, shared by Overview (latest five) and Invoices (a page).
+ *
+ * Balance and status arrive on the row already computed — in SQL for a live
+ * workspace, in memory for the demo — so this never needs the full payment
+ * history to render a single line.
+ */
 export default function InvoiceTable({
   invoices,
-  payments,
   onOpen,
   onNew,
+  filtered = false,
 }: {
-  invoices: Invoice[];
-  payments: Payment[];
-  onOpen: (i: Invoice) => void;
+  invoices: InvoiceRow[];
+  onOpen: (i: InvoiceRow) => void;
   onNew: () => void;
+  /** Changes the empty state: no matches is not the same as no invoices. */
+  filtered?: boolean;
 }) {
   if (!invoices.length)
-    return (
+    return filtered ? (
+      <Empty
+        title="No invoices match these filters"
+        detail="Try a wider date range, or clear the filters to see everything."
+      />
+    ) : (
       <Empty
         title="No invoices here yet"
         detail="Create an invoice and give your paperwork a fresh start."
@@ -61,11 +66,11 @@ export default function InvoiceTable({
                 <small>{i.customer.name}</small>
               </td>
               <td>{dateLabel(i.date)}</td>
-              <td className="number">{money(i.total)}</td>
-              <td className="number">{money(balance(i, payments))}</td>
+              <td className="number">{money(Number(i.total))}</td>
+              <td className="number">{money(Number(i.balance_due))}</td>
               <td>
-                <span className={`badge ${status(i, payments).toLowerCase()}`}>
-                  {status(i, payments)}
+                <span className={`badge ${i.derived_status.toLowerCase()}`}>
+                  {i.derived_status}
                 </span>
               </td>
               <td>

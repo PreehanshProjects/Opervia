@@ -56,6 +56,19 @@ It does not try to be accounting software. It deliberately omits credit notes, r
    What *can* be removed, and why: **expenses** are the owner’s own note-to-self, hold nothing a customer relies on, and are editable and deletable (`own_expenses` is `FOR ALL`). A **customer** can be deleted only while they have no invoices, no opening balance and no payments — after that they are part of the record. Customers and expenses use the same confirmation dialog; only permanent customer deletion requires typing the name back.
 4. **"Net cash movement" is not profit.** The Overview figure is received payments minus recorded expenses. No P&L framing, no "profit" label, no implication of an accounting result.
 
+**Data loading:** transactions are queried a page at a time on the server
+(`list_invoices`, `list_expenses`, `list_ledger`), with filtering, sorting,
+paging and counting all done in SQL under the same owner isolation as the row
+policies. Only reference data — the business profile, customers and opening
+balances — is loaded whole, because it is small and every screen needs it.
+
+Because of that, **every headline figure is computed server-side**
+(`workspace_summary`, `customer_balances`). Outstanding, received, expenses and
+the ledger running balance must never be derived from the rows currently on
+screen: a total of page one is wrong in a way that looks right. Demo mode mirrors
+the same semantics in memory (`queryInvoices`, `queryExpenses`, `queryLedger`,
+`summarise`), and both are tested against the same expectations.
+
 **Further technical constraints:** invoice numbers come from a PostgreSQL sequence — global, and gaps are possible, so the UI must not present them as contiguous. Account numbers are stored as text to preserve leading zeros. Issued invoices retain their original business/customer snapshots; editing Settings must not appear to rewrite history. The frontend holds only a publishable key. No arbitrary HTML is rendered.
 
 **Opening balances (added):** what a customer owed before Opervia is recorded as one dated entry per customer. It is not an invoice — it consumes no number from the sequence, is never printed, and must never be sent to a customer who already holds the paper invoice it represents. Money received against it is recorded as a real payment so the cash figures stay correct. A customer with an opening balance cannot be deleted, and the balance cannot be lowered below what has already been settled against it.

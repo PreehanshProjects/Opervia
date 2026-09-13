@@ -11,6 +11,9 @@ import {
   openingPaid,
   totalOpeningOutstanding,
   canDeleteCustomer,
+  queryInvoices,
+  queryLedger,
+  summarise,
 } from "./domain";
 import { makeDemo } from "./demo";
 describe("invoice calculations", () => {
@@ -186,5 +189,92 @@ describe("opening balances", () => {
     const d = base();
     expect(canDeleteCustomer("c1", d)).toBe(false);
     expect(canDeleteCustomer("c2", d)).toBe(true);
+  });
+});
+
+describe("queries (the in-memory mirror of the SQL functions)", () => {
+  const build = () => {
+    const d = emptyData();
+    d.customers = [
+      { id: "c1", name: "Alpha Ltd", address: "", phone: "", email: "", brn: "" },
+      { id: "c2", name: "Beta Co", address: "", phone: "", email: "", brn: "" },
+    ];
+    d.invoices = Array.from({ length: 12 }, (_, n) => ({
+      id: `i${n + 1}`,
+      number: `OP-${1001 + n}`,
+      customer_id: n % 2 ? "c2" : "c1",
+      customer: d.customers[n % 2],
+      business: d.business,
+      date: `2026-03-${String(n + 1).padStart(2, "0")}`,
+      due_date: `2026-04-${String(n + 1).padStart(2, "0")}`,
+      items: [],
+      notes: "",
+      tax_rate: 0,
+      subtotal: 100,
+      tax: 0,
+      total: 100,
+      voided: false,
+    }));
+    return d;
+  };
+
+  it("reports the true total, not the size of the page", () => {
+    const d = build();
+    const first = queryInvoices(d, { limit: 5 });
+    expect(first.total).toBe(12);
+    expect(first.rows).toHaveLength(5);
+    const last = queryInvoices(d, { limit: 5, offset: 10 });
+    expect(last.total).toBe(12);
+    expect(last.rows).toHaveLength(2);
+  });
+
+  it("pages without repeating or dropping a row", () => {
+    const d = build();
+    const seen = [0, 5, 10].flatMap(
+      (offset) => queryInvoices(d, { limit: 5, offset }).rows,
+    );
+    expect(seen).toHaveLength(12);
+    expect(new Set(seen.map((i) => i.id)).size).toBe(12);
+  });
+
+  it("filters by customer, date range and search", () => {
+    const d = build();
+    expect(queryInvoices(d, { customer_id: "c1", limit: 50 }).total).toBe(6);
+    expect(
+      queryInvoices(d, { from: "2026-03-03", to: "2026-03-05", limit: 50 }).total,
+    ).toBe(3);
+    expect(queryInvoices(d, { search: "beta", limit: 50 }).total).toBe(6);
+    expect(queryInvoices(d, { search: "nothing", limit: 50 }).total).toBe(0);
+  });
+
+  it("keeps the ledger running balance continuous across pages", () => {
+    const d = build();
+    const whole = queryLedger(d, { customer_id: "c1", limit: 500 });
+    expect(whole.rows.map((r) => r.balance)).toEqual([
+      100, 200, 300, 400, 500, 600,
+    ]);
+    // The second page must continue the balance, not restart it.
+    const second = queryLedger(d, { customer_id: "c1", limit: 3, offset: 3 });
+    expect(second.rows[0].balance).toBe(400);
+    expect(second.total).toBe(6);
+    expect(whole.closing).toBe(600);
+  });
+
+  it("summarises the whole workspace, not the visible page", () => {
+    const d = build();
+    const s = summarise(d);
+    expect(s.invoiceOutstanding).toBe(1200);
+    expect(s.unpaidCount).toBe(12);
+    expect(s.invoiceCount).toBe(12);
+    // A page of five must not change any total.
+    expect(queryInvoices(d, { limit: 5 }).total).toBe(s.invoiceCount);
+  });
+
+  it("excludes voided invoices from totals but still lists them", () => {
+    const d = build();
+    d.invoices[0].voided = true;
+    expect(summarise(d).invoiceOutstanding).toBe(1100);
+    expect(queryInvoices(d, { status: "Void", limit: 50 }).total).toBe(1);
+    expect(queryLedger(d, { limit: 500 }).total).toBe(11);
   });
 });
