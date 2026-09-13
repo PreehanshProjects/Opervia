@@ -1,0 +1,188 @@
+import {
+  type Business,
+  type Invoice,
+  type Payment,
+  money,
+  dateLabel,
+  lineTotal,
+  paid,
+  balance,
+} from "./domain";
+export default function InvoicePrint({
+  invoice,
+  business,
+  payments,
+  blank = false,
+}: {
+  invoice?: Invoice;
+  business: Business;
+  payments: Payment[];
+  blank?: boolean;
+}) {
+  const b = invoice?.business ?? business;
+  return (
+    <article className={`invoice-paper ${blank ? "blank-paper" : ""}`}>
+      <header className="paper-header">
+        <div>
+          <span className="paper-eyebrow">
+            {b.subtitle || "INVOICE / SALES INVOICE"}
+          </span>
+          <h1>{b.name}</h1>
+          {b.proprietor && <p>Proprietor: {b.proprietor}</p>}
+          <p>{b.address}</p>
+          <p>{[b.phone, b.email].filter(Boolean).join(" · ")}</p>
+          {b.brn && <p>Business registration no. {b.brn}</p>}
+        </div>
+        <div className="paper-title">
+          <h2>INVOICE</h2>
+          <strong>
+            {blank ? "No. ........................" : invoice?.number}
+          </strong>
+          <p>
+            {blank
+              ? "CASH / CREDIT SALES"
+              : invoice?.voided
+                ? "VOID"
+                : "CASH / CREDIT SALES"}
+          </p>
+        </div>
+      </header>
+      <section className="paper-customer">
+        <div>
+          <span className="paper-eyebrow">BILL TO</span>
+          <h3>
+            {blank
+              ? "Customer: ........................................................"
+              : invoice?.customer.name}
+          </h3>
+          <p>
+            {blank
+              ? "Address: ............................................................"
+              : invoice?.customer.address}
+          </p>
+          <p>
+            {blank
+              ? "Telephone: ........................................................."
+              : invoice?.customer.phone}
+          </p>
+          <p>
+            {blank
+              ? "Business reg. no.: .............................................."
+              : invoice?.customer.brn
+                ? `BRN: ${invoice.customer.brn}`
+                : ""}
+          </p>
+        </div>
+        <div>
+          <p>
+            <b>Invoice date</b>
+            <span>
+              {blank ? "........................" : dateLabel(invoice!.date)}
+            </span>
+          </p>
+          <p>
+            <b>Payment due</b>
+            <span>
+              {blank
+                ? "........................"
+                : dateLabel(invoice!.due_date)}
+            </span>
+          </p>
+        </div>
+      </section>
+      <table className="paper-table">
+        <thead>
+          <tr>
+            <th>DESCRIPTION</th>
+            <th>QTY</th>
+            <th>UNIT</th>
+            <th>UNIT PRICE</th>
+            <th>AMOUNT</th>
+          </tr>
+        </thead>
+        <tbody>
+          {blank
+            ? Array.from({ length: 14 }, (_, i) => (
+                <tr key={i}>
+                  <td>&nbsp;</td>
+                  <td />
+                  <td />
+                  <td />
+                  <td />
+                </tr>
+              ))
+            : invoice?.items.map((item, i) => (
+                <tr key={i}>
+                  <td>
+                    {item.section && <small>{item.section} · </small>}
+                    {item.description}
+                  </td>
+                  <td>{item.quantity}</td>
+                  <td>{item.unit}</td>
+                  <td>{money(item.price)}</td>
+                  <td>{money(lineTotal(item))}</td>
+                </tr>
+              ))}
+        </tbody>
+      </table>
+      <div className="paper-bottom">
+        <div>
+          <b>Notes & payment terms</b>
+          <p>{invoice?.notes}</p>
+          <p>{b.terms}</p>
+          {(b.bankName || b.accountName || b.accountNumber) && (
+            <div className="paper-bank">
+              <b>Bank payment details</b>
+              {b.bankName && <p>Bank: {b.bankName}</p>}
+              {b.accountName && <p>Account holder: {b.accountName}</p>}
+              {b.accountNumber && <p>Account number: {b.accountNumber}</p>}
+            </div>
+          )}
+        </div>
+        <div className="paper-totals">
+          {!blank && (
+            <>
+              <p>
+                <span>Subtotal</span>
+                <b>{money(invoice!.subtotal)}</b>
+              </p>
+              {!!invoice?.tax_rate && (
+                <p>
+                  <span>Tax ({invoice.tax_rate}%)</span>
+                  <b>{money(invoice.tax)}</b>
+                </p>
+              )}
+            </>
+          )}
+          <p className="paper-grand">
+            <span>Total</span>
+            <b>{blank ? "........................" : money(invoice!.total)}</b>
+          </p>
+          <p>
+            <span>Amount paid / deposit</span>
+            <b>
+              {blank
+                ? "........................"
+                : money(paid(invoice!, payments))}
+            </b>
+          </p>
+          <p>
+            <span>Balance due</span>
+            <b>
+              {blank
+                ? "........................"
+                : money(balance(invoice!, payments))}
+            </b>
+          </p>
+        </div>
+      </div>
+      <footer className="paper-signatures">
+        <span>Customer’s signature</span>
+        <span>Signature for {b.name}</span>
+      </footer>
+      <div className="paper-footer">
+        Thank you for your business. <span>Created with Opervia</span>
+      </div>
+    </article>
+  );
+}

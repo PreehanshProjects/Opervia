@@ -1,0 +1,36 @@
+{
+  "name": "opervia",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview --host 0.0.0.0",
+    "test": "vitest run",
+    "test:e2e": "playwright test"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.109.0",
+    "decimal.js": "^10.6.0",
+    "lucide-react": "^1.45.0",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.5.8",
+    "@playwright/test": "^1.63.0",
+    "@types/node": "^22.20.2",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^4.7.0",
+    "prettier": "^3.9.6",
+    "typescript": "^7.0.2",
+    "vite": "^6.4.3",
+    "vitest": "^4.1.11"
+  }
+}
