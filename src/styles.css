@@ -126,7 +126,9 @@ small {
   align-items: center;
   justify-content: center;
   gap: 9px;
-  min-height: 43px;
+  /* The control height. Buttons, fields, tabs and the search box all sit on
+     this number so a row of mixed controls lines up exactly. */
+  min-height: 44px;
   padding: 11px 17px;
   border: 1px solid transparent;
   border-radius: 8px;
@@ -545,6 +547,13 @@ nav button.active svg {
   font-size: 13px;
   white-space: nowrap;
 }
+/* Vertical rules. The printed blank sheet already draws them; the screen table
+   simply never inherited them. Lighter than the row rule so the eye still reads
+   rows first, columns second. */
+.data-table th:not(:last-child),
+.data-table td:not(:last-child) {
+  border-right: 1px solid #f2f4ed;
+}
 .data-table th {
   font-size: 11px;
   letter-spacing: 0.7px;
@@ -790,14 +799,15 @@ nav button.active svg {
   align-items: center;
   gap: 9px;
   border: 1px solid var(--border);
-  border-radius: 7px;
+  border-radius: 8px;
   padding: 0 11px;
+  min-height: 44px;
   color: #6f7a63;
   background: #fff;
 }
 .search-box input {
   border: 0;
-  min-height: 44px;
+  min-height: 42px;
   padding: 8px 0;
   font-size: 13px;
   background: transparent;
@@ -927,7 +937,9 @@ nav button.active svg {
 }
 .form-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  /* minmax(0,…) rather than 1fr: date inputs and selects have a wide
+     min-content and will otherwise push straight out of their track. */
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 19px;
   margin-bottom: 22px;
 }
@@ -1932,15 +1944,50 @@ nav button.active svg {
     flex-direction: column;
     font-size: 10px;
   }
+  /* A centred dialog exists to keep context visible behind it. On a phone
+     there is no context to keep, so the dialog pays the cost of cramped
+     padding and gains nothing. Creating an invoice becomes a full screen. */
   .modal-backdrop {
-    padding: 12px 10px;
+    padding: 0;
+    align-items: stretch;
+    backdrop-filter: none;
   }
   .modal {
-    border-radius: 12px;
+    width: 100%;
+    max-width: none;
+    height: 100dvh;
+    max-height: none;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+    animation: sheet-up 0.22s cubic-bezier(0.22, 1, 0.36, 1);
   }
   .modal-header {
-    padding: 15px 18px;
+    padding: 14px 8px 14px 18px;
+    padding-top: calc(14px + env(safe-area-inset-top));
   }
+  .modal-header h2 {
+    font-size: 16px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  /* The action bar sits on the home indicator, not under it. */
+  .modal .form-footer {
+    padding-bottom: calc(18px + env(safe-area-inset-bottom));
+    margin-left: -18px;
+    margin-right: -18px;
+    padding-left: 18px;
+    padding-right: 18px;
+  }
+}
+@keyframes sheet-up {
+  from {
+    transform: translateY(14px);
+    opacity: 0;
+  }
+}
+@media (max-width: 760px) {
   .modal-header h2 {
     font-size: 16px;
   }
@@ -1950,11 +1997,11 @@ nav button.active svg {
   .form-grid {
     gap: 15px;
   }
+  /* Full-screen sheets have the height, so every field gets the full width.
+     Two-up at 390px cannot hold a date picker without overflowing. */
+  .form-grid,
   .form-grid.three {
-    grid-template-columns: 1fr 1fr;
-  }
-  .form-grid.three > label:first-child {
-    grid-column: 1/-1;
+    grid-template-columns: minmax(0, 1fr);
   }
   .item-row {
     grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -2540,4 +2587,59 @@ nav button.active svg {
   .topbar-signout {
     display: none;
   }
+}
+
+/* --- Destructive confirmation --- */
+
+.confirm-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.confirm-intro {
+  font-size: 14px;
+  line-height: 1.6;
+}
+.confirm-detail {
+  font-size: 12px;
+  line-height: 1.7;
+  color: #6d7763;
+  background: #f7f8f0;
+  border: 1px solid #eceddf;
+  border-radius: 10px;
+  padding: 14px 16px;
+}
+.confirm-prompt {
+  display: block;
+  line-height: 1.6;
+}
+.confirm-prompt b {
+  font-weight: 700;
+}
+.confirm-hint {
+  color: #6d7763;
+  margin-top: -8px;
+}
+.confirm-footer {
+  margin-top: 8px;
+  justify-content: flex-end;
+  gap: 10px;
+}
+/* A destructive action in the customer form sits opposite Save, never beside it. */
+.danger-text {
+  color: #a1493a;
+}
+.danger-text:hover {
+  text-decoration: underline;
+}
+.footer-note {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: #6d7763;
+  max-width: 420px;
+}
+.footer-note svg {
+  flex-shrink: 0;
 }

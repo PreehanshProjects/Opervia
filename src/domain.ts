@@ -140,6 +140,17 @@ export function status(invoice: Invoice, payments: Payment[]) {
   if (paid(invoice, payments) > 0) return "Partial";
   return "Unpaid";
 }
+/**
+ * A customer who has been invoiced is part of the financial record and cannot be
+ * removed — the same principle that lets an invoice be voided but never deleted.
+ * One with no invoices is just a contact, and deleting it costs nothing.
+ */
+export function invoiceCountFor(customerId: string, invoices: Invoice[]) {
+  return invoices.filter((i) => i.customer_id === customerId).length;
+}
+export function canDeleteCustomer(customerId: string, invoices: Invoice[]) {
+  return invoiceCountFor(customerId, invoices) === 0;
+}
 export function validateInvoice(input: InvoiceInput) {
   if (!input.customer_id) throw new Error("Choose a customer.");
   if (!input.date || !input.due_date || input.due_date < input.date)
@@ -240,15 +251,14 @@ export function csvCell(value: unknown) {
   if (/^[\s]*[=+@-]/.test(s)) s = "'" + s;
   return '"' + s.replaceAll('"', '""') + '"';
 }
-export function downloadCsv(filename: string, rows: unknown[][]) {
-  const blob = new Blob(
-    ["\uFEFF" + rows.map((r) => r.map(csvCell).join(",")).join("\r\n")],
-    { type: "text/csv;charset=utf-8" },
+/**
+ * Serialises rows to CSV. Pure on purpose: delivering the file is a platform
+ * concern (see lib/platform.ts), and this module stays testable in plain Node.
+ * The BOM keeps Excel honest about UTF-8.
+ */
+export function toCsv(rows: unknown[][]) {
+  return (
+    "\uFEFF" + rows.map((r) => r.map(csvCell).join(",")).join("\r\n")
   );
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
+export const CSV_MIME = "text/csv;charset=utf-8";

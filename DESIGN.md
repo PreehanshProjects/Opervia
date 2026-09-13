@@ -389,17 +389,26 @@ A 58px Ledger Green circle above the bar on the right, carrying the create-invoi
 **The Earned Overlay Rule.** Anything fixed over content must justify covering it. The FAB appears only when the action it duplicates has scrolled out of reach, and it is inert whenever it is invisible.
 
 ### Data table
-- **Header:** 9px DM Sans 500 with +0.7px tracking on a Sunken Surface ground, bounded by hairlines above and below — seated into the panel rather than underlined.
-- **Cells:** 11px, 19px padding, `white-space: nowrap` inside an `overflow-x: auto` scroller. First column gets 24px left padding to align with the panel heading.
+- **Header:** 11px DM Sans 500 with +0.7px tracking on a Sunken Surface ground, bounded by hairlines above and below — seated into the panel rather than underlined.
+- **Cells:** 13px, 19px padding, `white-space: nowrap` inside an `overflow-x: auto` scroller. First column gets 24px left padding to align with the panel heading.
+- **Column rules:** a 1px `#f2f4ed` `border-right` on every cell except the last — lighter than the `#f0f2eb` row rule, so the eye reads rows first and columns second. This is the ruled ledger column, and it already existed in the printed blank sheet; the screen table simply inherits it now.
 - **Row hover:** `#fcfdf9` — barely there, enough to track a row across a wide table.
 - **Row link:** 12px at weight 650 in `#334f3c`, underlining on hover.
 - **Money cells** carry `.number` (tabular figures, weight 500).
+
+### Confirmation dialog
+The single surface for destructive and irreversible actions — voiding an invoice, deleting a customer. It names the record, states the consequence in a Tint Green detail block, and for permanent deletions requires the user to **type the record's name back** before the action unlocks. The danger button uses the muted rose variant, never red, and sits opposite a plain "Keep it".
+
+**The Typed Consent Rule.** An action that destroys data permanently requires typing, not tapping. Voiding is confirmed with a button because the record survives; deleting is confirmed by typing the name because it does not. Native `window.confirm` is never used — it cannot name the amount, carries OS chrome, and breaks the system.
 
 ### Modal
 - **Shape:** 15px radius, white, with the heaviest shadow in the system over a `#132c2466` backdrop.
 - **Header:** Title at 18px with a 34px close icon button.
 - **Behavior:** Focus is trapped, the first focusable element receives focus on open, Escape closes, body scroll is locked, and focus returns to the invoking element on close.
 - **Print:** The backdrop goes static and unstyled, the modal loses its chrome entirely, and the invoice sheet prints alone.
+- **Mobile (≤760px): a full-screen sheet, not a dialog.** It fills `100dvh` at zero radius with no backdrop blur, slides up 14px on entry, and its header clears `env(safe-area-inset-top)` while the action bar clears `env(safe-area-inset-bottom)`. Form grids collapse to one field per row.
+
+**The No-Context-Behind Rule.** A centred dialog exists to keep context visible behind it. On a phone there is no context to keep, so the dialog pays for cramped padding and gains nothing — below 760px every modal becomes a full-screen sheet.
 
 ### The Invoice Sheet (signature component)
 The product's centerpiece and the only component with its own type scale. A white A4 page resting on a `#e9ece4` desk with the Paper shadow, its own ink color (`#29362d`), a `#eef2e7` table header band, ruled rows, a totals block, and signature lines.
@@ -418,7 +427,7 @@ Ledger Green ground (`#1b4334`) with `#eff6e4` text at 9px radius, floating on t
 
 ### Named Rules
 
-**The 44px Rule.** No interactive element is under 44px of touch height. Inputs are 44px, buttons 43px, nav items 45px. The 34px icon button is the one exception and is only permitted where a larger target sits adjacent.
+**The 44px Rule.** 44px is *the* control height, not a minimum to clear. Buttons, inputs, selects, the search box, filter tabs, icon buttons and text buttons are all exactly 44px, so any row of mixed controls aligns without adjustment. Sidebar nav items are the one deliberate exception at 45px.
 
 **The Three-Signal Active Rule.** The active nav state changes ground, text color, and weight together. One signal is a hint; three is a fact.
 

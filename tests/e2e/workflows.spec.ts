@@ -136,11 +136,14 @@ test("search, blank invoice, void and demo reset", async ({
   ).toBeVisible();
   await page.getByLabel("Search invoices").fill("OP-1003");
   await page.getByRole("button", { name: "View OP-1003" }).click();
-  page.once("dialog", (d) => d.accept());
   await page
     .getByRole("dialog")
     .getByRole("button", { name: "Void", exact: true })
     .click();
+  // Voiding now confirms in an Opervia dialog rather than a native confirm().
+  const confirmVoid = page.getByRole("dialog", { name: /^Void OP-1003\?$/ });
+  await expect(confirmVoid).toBeVisible();
+  await confirmVoid.getByRole("button", { name: "Void invoice" }).click();
   await expect(page.locator(".print-toolbar .badge")).toHaveText("Void");
   await page.getByRole("button", { name: "Close dialog" }).click();
   await page
@@ -150,4 +153,50 @@ test("search, blank invoice, void and demo reset", async ({
   await expect(
     page.getByRole("button", { name: "Explore the demo" }),
   ).toBeVisible();
+});
+
+test("a customer with no invoices can be deleted; one with invoices cannot", async ({
+  page,
+}, testInfo) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Explore the demo" }).click();
+  const nav = async (name: string) =>
+    page
+      .locator(
+        testInfo.project.name === "mobile" ? ".bottom-nav" : ".sidebar nav",
+      )
+      .getByRole("button", { name: new RegExp(`^${name}`) })
+      .click();
+
+  await nav("Customers");
+
+  // A demo customer that already has invoices is protected.
+  await page.getByRole("button", { name: /Sample Restaurant/ }).click();
+  const existing = page.getByRole("dialog", { name: "Customer details" });
+  await expect(existing.getByText(/stay on record/)).toBeVisible();
+  await expect(
+    existing.getByRole("button", { name: "Delete customer" }),
+  ).toHaveCount(0);
+  await page.getByRole("button", { name: "Close dialog" }).click();
+
+  // A newly added customer has no invoices, so it can be deleted.
+  await page.getByRole("button", { name: "Add customer" }).click();
+  await page.getByLabel("Customer name").fill("Temporary Trader");
+  await page.getByRole("button", { name: "Save customer" }).click();
+  await expect(page.getByText("Temporary Trader")).toBeVisible();
+
+  await page.getByRole("button", { name: /Temporary Trader/ }).click();
+  await page.getByRole("button", { name: "Delete customer" }).click();
+
+  const confirm = page.getByRole("dialog", { name: "Delete this customer?" });
+  const remove = confirm.getByRole("button", { name: "Delete customer" });
+  // The action stays locked until the name is typed exactly.
+  await expect(remove).toBeDisabled();
+  await confirm.getByRole("textbox").fill("Temporary");
+  await expect(remove).toBeDisabled();
+  await confirm.getByRole("textbox").fill("Temporary Trader");
+  await expect(remove).toBeEnabled();
+  await remove.click();
+
+  await expect(page.getByText("Temporary Trader")).toHaveCount(0);
 });

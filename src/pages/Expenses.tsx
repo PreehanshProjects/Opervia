@@ -1,6 +1,7 @@
 import { Download } from "lucide-react";
 import Empty from "../components/Empty";
-import { dateLabel, downloadCsv, money, type Data } from "../domain";
+import { CSV_MIME, dateLabel, money, toCsv, type Data } from "../domain";
+import { saveTextFile } from "../lib/platform";
 
 export default function Expenses({
   expenses,
@@ -20,15 +21,19 @@ export default function Expenses({
           type="button"
           className="btn secondary"
           onClick={() =>
-            downloadCsv("opervia-expenses.csv", [
-              ["Date", "Description", "Category", "Amount MUR"],
-              ...expenses.map((e) => [
-                e.date,
-                e.description,
-                e.category,
-                e.amount,
+            void saveTextFile(
+              "opervia-expenses.csv",
+              toCsv([
+                ["Date", "Description", "Category", "Amount MUR"],
+                ...expenses.map((e) => [
+                  e.date,
+                  e.description,
+                  e.category,
+                  e.amount,
+                ]),
               ]),
-            ])
+              CSV_MIME,
+            )
           }
         >
           <Download size={15} />

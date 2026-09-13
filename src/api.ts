@@ -1,4 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
+import { Preferences } from "@capacitor/preferences";
+import { isNative } from "./lib/platform";
 import type {
   Business,
   Customer,
@@ -12,14 +14,25 @@ const url = import.meta.env.VITE_SUPABASE_URL;
 const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 if (key && !(key.startsWith("sb_publishable_") || key.startsWith("eyJ")))
   throw new Error("Use a Supabase publishable key, never a secret key.");
+// A WebView can evict localStorage, which would silently sign the owner out
+// mid-day. Native builds persist the session through the OS instead. Web is
+// left on localStorage exactly as before, so existing sessions keep working.
+const nativeAuthStorage = {
+  getItem: async (k: string) => (await Preferences.get({ key: k })).value,
+  setItem: (k: string, v: string) => Preferences.set({ key: k, value: v }),
+  removeItem: (k: string) => Preferences.remove({ key: k }),
+};
+
 export const supabase =
   url && key
     ? createClient(url, key, {
         auth: {
           persistSession: true,
           autoRefreshToken: true,
-          detectSessionInUrl: true,
+          // On native the session arrives via a deep link we handle ourselves.
+          detectSessionInUrl: !isNative(),
           flowType: "pkce",
+          ...(isNative() ? { storage: nativeAuthStorage } : {}),
         },
       })
     : null;
@@ -76,6 +89,20 @@ export async function saveCustomer(customer: Customer) {
   const { error } = await supabase!
     .from("customers")
     .upsert({ ...customer, owner_id: await owner() });
+  check(error);
+}
+/**
+ * Removes a customer outright. Only ever called for customers with no invoices:
+ * the invoices table carries a foreign key to (id, owner_id) with no ON DELETE
+ * clause, so the database refuses to orphan financial history. The caller checks
+ * first so the user gets a real explanation instead of a constraint violation.
+ */
+export async function deleteCustomer(id: string) {
+  const { error } = await supabase!
+    .from("customers")
+    .delete()
+    .eq("id", id)
+    .eq("owner_id", await owner());
   check(error);
 }
 export async function createInvoice(input: InvoiceInput) {

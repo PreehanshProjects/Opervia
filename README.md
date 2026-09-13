@@ -73,5 +73,75 @@ npm run test:e2e
 `npm test` checks decimal arithmetic and runs the actual SQL migration in PGlite (embedded PostgreSQL), testing two-account isolation, anonymous denial, unauthorized writes, server totals, deposit rollback, payment limits, idempotency, snapshot preservation, and void rules. PGlite tests use a small `auth.uid()` fixture; they do not substitute for testing Supabase Auth or concurrent sessions against the hosted project.
 
 Playwright checks desktop and mobile demo workflows: customer creation, fractional invoice with tax/deposit, settlement, customer ledger, CSV download, blank sheet, printing CSS, search, expense recording, voiding, and demo exit. Screenshots are written to `test-results/`.
-#   O p e r v i a  
- 
+
+## Android app (Capacitor)
+
+Opervia ships as an Android app that wraps the same build Vercel serves. The web
+app is unchanged: every native path is gated behind `isNative()` in
+[`src/lib/platform.ts`](src/lib/platform.ts), so the browser build behaves
+exactly as it did before Capacitor was added.
+
+### Build it
+
+Requires a JDK 17+ on `PATH` (Android Studio bundles one) and the Android SDK.
+
+```powershell
+npm run android:sync   # build the web app and copy it into android/
+npm run android:open   # open the project in Android Studio
+npm run android:run    # build and run on a connected device or emulator
+```
+
+Run `android:sync` after every web change; the native project serves a copied
+build, not your dev server.
+
+### What is native, and why
+
+- **Printing.** Android's WebView does not implement `window.print()`, and the
+  printed A4 invoice is the deliverable. Opervia bridges directly to Android's
+  `PrintManager` in
+  [`PrintPlugin.java`](android/app/src/main/java/io/novity/opervia/PrintPlugin.java)
+  (~40 lines, no third-party dependency, A4 media size). The system sheet it
+  opens includes **Save as PDF**. The page's existing `@media print` rules and
+  `@page { size: A4 }` produce the same output as the browser.
+- **CSV export.** A WebView has no download manager, so `a[download]` fails
+  silently. Native builds write the file to Documents and offer it through the
+  system share sheet.
+- **Sessions.** A WebView can evict `localStorage`, which would sign the owner
+  out mid-day. Native builds persist the Supabase session through
+  `@capacitor/preferences` instead. Web still uses `localStorage`, so existing
+  sessions keep working.
+- **Back button.** Android's hardware back closes a stacked dialog, then a
+  dialog, then returns to Overview, and only then leaves the app — so it can
+  never discard a half-typed invoice by accident.
+
+### Required Supabase setting
+
+Confirmation and password-reset emails must be able to return to the app. In
+**Authentication → URL Configuration**, add these to the redirect allowlist
+alongside your existing web URLs:
+
+```
+io.novity.opervia://auth
+io.novity.opervia://auth/?recovery=1
+```
+
+The matching intent filter is already declared in `AndroidManifest.xml`, and the
+PKCE code exchange is handled in [`src/lib/native.ts`](src/lib/native.ts).
+Without the allowlist entries, sign-up confirmation will fail in the app while
+continuing to work on the web.
+
+### iOS
+
+Not set up. `npx cap add ios` requires macOS with Xcode and CocoaPods, which
+cannot run on Windows. The web and shared native code are already
+platform-agnostic; iOS additionally needs a Swift equivalent of `PrintPlugin`
+(`UIPrintInteractionController`) and a Universal Link or custom-scheme entry for
+the same auth redirects. `printDocument()` returns `false` on any platform
+without a print path, and the UI says so rather than appearing to do nothing.
+
+### App identity
+
+`appId` is `io.novity.opervia`. **This is permanent once published to Play** —
+change it in `capacitor.config.json`, `AndroidManifest.xml`, the Java package
+path, and `AUTH_SCHEME` before the first store upload if you want a different
+one.

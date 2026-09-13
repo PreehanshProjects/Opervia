@@ -23,10 +23,13 @@ import {
   paid,
   balance,
   status,
+  canDeleteCustomer,
+  invoiceCountFor,
   totals,
   validateInvoice,
   ledger,
-  downloadCsv,
+  toCsv,
+  CSV_MIME,
   roundMoney,
 } from "./domain";
 import { makeDemo } from "./demo";
@@ -34,6 +37,7 @@ import Auth from "./Auth";
 import InvoicePrint from "./InvoicePrint";
 import ModalShell from "./components/ModalShell";
 import WriteError from "./components/WriteError";
+import ConfirmDialog from "./components/ConfirmDialog";
 import Sidebar from "./components/Sidebar";
 import Topbar from "./components/Topbar";
 import BottomNav from "./components/BottomNav";
@@ -49,6 +53,8 @@ import PaymentForm from "./forms/PaymentForm";
 import ExpenseForm from "./forms/ExpenseForm";
 import { clearRescuedDraft, hasRescuedDraft } from "./lib/draft";
 import { errorText } from "./lib/errors";
+import { printDocument, saveTextFile } from "./lib/platform";
+import { initBackButton, initNative } from "./lib/native";
 import type { Modal, Page } from "./lib/nav";
 
 export default function App() {
@@ -78,6 +84,11 @@ export default function App() {
   const [presetCustomer, setPresetCustomer] = useState("");
   // The carbon copy: a previous invoice used as the starting point for a new one.
   const [template, setTemplate] = useState<InvoiceInput | null>(null);
+  // The pending destructive action, if any. One state for every such action so
+  // they all get the same dialog and the same language.
+  const [confirming, setConfirming] = useState<
+    { kind: "void"; invoice: Invoice } | { kind: "customer"; customer: Customer } | null
+  >(null);
   const [sessionEnded, setSessionEnded] = useState(false);
   const deliberateSignOut = useRef(false);
   const loadGeneration = useRef(0);
@@ -136,6 +147,33 @@ export default function App() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
   useEffect(() => setScrolled(window.scrollY > 150), [page]);
+  // Native shell wiring. Both are no-ops in the browser.
+  useEffect(() => initNative(() => setRecovery(true)), []);
+  // Android's back button reads through the same hierarchy the user sees:
+  // stacked dialog, then dialog, then back to Overview, then leave the app.
+  const backRef = useRef<() => boolean>(() => false);
+  backRef.current = () => {
+    if (busy) return true;
+    if (confirming) {
+      setConfirming(null);
+      setError("");
+      return true;
+    }
+    if (customerOverInvoice) {
+      closeStackedCustomer();
+      return true;
+    }
+    if (modal) {
+      closeModal();
+      return true;
+    }
+    if (page !== "Overview") {
+      go("Overview");
+      return true;
+    }
+    return false;
+  };
+  useEffect(() => initBackButton(() => backRef.current()), []);
   async function refresh() {
     const generation = ++loadGeneration.current;
     setLoading(true);
@@ -183,6 +221,56 @@ export default function App() {
       return next;
     }
     return data;
+  }
+  async function voidInvoice(invoice: Invoice) {
+    const ok = await act(async () => {
+      if (demo)
+        setData((d) => ({
+          ...d,
+          invoices: d.invoices.map((i) =>
+            i.id === invoice.id ? { ...i, voided: true } : i,
+          ),
+        }));
+      else {
+        await api.voidInvoice(invoice.id);
+        await sync();
+      }
+    }, "Invoice voided");
+    if (ok) setConfirming(null);
+  }
+  async function removeCustomer(customer: Customer) {
+    const ok = await act(async () => {
+      // Guarded again here: the list could have changed since the dialog opened.
+      if (!canDeleteCustomer(customer.id, data.invoices))
+        throw new Error(
+          "This customer now has invoices, so their details stay on record.",
+        );
+      if (demo)
+        setData((d) => ({
+          ...d,
+          customers: d.customers.filter((c) => c.id !== customer.id),
+        }));
+      else {
+        await api.deleteCustomer(customer.id);
+        await sync();
+      }
+    }, "Customer deleted");
+    if (ok) {
+      setConfirming(null);
+      closeModal();
+    }
+  }
+  // Printing is the deliverable, so a platform that cannot print must say so
+  // rather than let the button appear to do nothing.
+  async function print(documentName: string) {
+    try {
+      if (await printDocument(documentName)) return;
+      setError(
+        "Printing is not available on this device yet. Open Opervia in a browser to print or save a PDF.",
+      );
+    } catch (e) {
+      setError(errorText(e));
+    }
   }
   function go(p: Page) {
     setPage(p);
@@ -382,26 +470,30 @@ export default function App() {
                 <button
                   className="btn secondary"
                   onClick={() =>
-                    downloadCsv("opervia-ledger.csv", [
-                      [
-                        "Date",
-                        "Reference",
-                        "Details",
-                        "Type",
-                        "Debit MUR",
-                        "Credit MUR",
-                        "Balance MUR",
-                      ],
-                      ...ledgerRows.map((r) => [
-                        r.date,
-                        r.label,
-                        r.detail,
-                        r.type,
-                        r.debit,
-                        r.credit,
-                        r.balance,
+                    void saveTextFile(
+                      "opervia-ledger.csv",
+                      toCsv([
+                        [
+                          "Date",
+                          "Reference",
+                          "Details",
+                          "Type",
+                          "Debit MUR",
+                          "Credit MUR",
+                          "Balance MUR",
+                        ],
+                        ...ledgerRows.map((r) => [
+                          r.date,
+                          r.label,
+                          r.detail,
+                          r.type,
+                          r.debit,
+                          r.credit,
+                          r.balance,
+                        ]),
                       ]),
-                    ])
+                      CSV_MIME,
+                    )
                   }
                 >
                   <Download size={16} />
@@ -538,11 +630,24 @@ export default function App() {
       {(modal === "customer" || customerOverInvoice) && (
         <ModalShell
           title={customerEdit ? "Customer details" : "A new connection"}
+          suspended={!!confirming}
           onClose={customerOverInvoice ? closeStackedCustomer : closeModal}
         >
           <CustomerForm
             customer={customerEdit}
             busy={busy}
+            invoiceCount={
+              customerEdit
+                ? invoiceCountFor(customerEdit.id, data.invoices)
+                : 0
+            }
+            onDelete={
+              customerEdit &&
+              canDeleteCustomer(customerEdit.id, data.invoices)
+                ? () =>
+                    setConfirming({ kind: "customer", customer: customerEdit })
+                : undefined
+            }
             onSave={async (customer) => {
               const ok = await act(async () => {
                 if (demo)
@@ -614,7 +719,11 @@ export default function App() {
               Print an empty sheet to fill in by hand. No ledger entry is
               created.
             </p>
-            <button className="btn primary" onClick={() => window.print()}>
+            <button
+              type="button"
+              className="btn primary"
+              onClick={() => void print("Blank invoice sheet")}
+            >
               <Printer size={17} />
               Print / Save PDF
             </button>
@@ -632,7 +741,7 @@ export default function App() {
               : "Create an invoice"
           }
           wide
-          suspended={customerOverInvoice}
+          suspended={customerOverInvoice || !!confirming}
           onClose={closeModal}
         >
           {currentInvoice ? (
@@ -660,7 +769,7 @@ export default function App() {
                   <button
                     type="button"
                     className="btn secondary"
-                    onClick={() => window.print()}
+                    onClick={() => void print(currentInvoice.number)}
                   >
                     <Printer size={16} />
                     Print / Save PDF
@@ -678,28 +787,12 @@ export default function App() {
                       <button
                         className="btn danger"
                         disabled={busy}
-                        onClick={() => {
-                          if (
-                            window.confirm(
-                              "Void this invoice? It will remain in your history and be excluded from balances.",
-                            )
-                          )
-                            void act(async () => {
-                              if (demo)
-                                setData((d) => ({
-                                  ...d,
-                                  invoices: d.invoices.map((i) =>
-                                    i.id === currentInvoice.id
-                                      ? { ...i, voided: true }
-                                      : i,
-                                  ),
-                                }));
-                              else {
-                                await api.voidInvoice(currentInvoice.id);
-                                await sync();
-                              }
-                            }, "Invoice voided");
-                        }}
+                        onClick={() =>
+                          setConfirming({
+                            kind: "void",
+                            invoice: currentInvoice,
+                          })
+                        }
                       >
                         Void
                       </button>
@@ -838,6 +931,68 @@ export default function App() {
             </>
           )}
         </ModalShell>
+      )}
+      {confirming?.kind === "void" && (
+        <ConfirmDialog
+          title={`Void ${confirming.invoice.number}?`}
+          intro={
+            <>
+              This voids <b>{confirming.invoice.number}</b> for{" "}
+              <b>{confirming.invoice.customer.name}</b>, worth{" "}
+              <b>{money(confirming.invoice.total)}</b>.
+            </>
+          }
+          detail="It stays in your history and on the ledger, marked Void, and is excluded from every balance. Voiding cannot be undone."
+          confirmLabel="Void invoice"
+          busy={busy}
+          error={
+            error && (
+              <WriteError
+                error={error}
+                canRetry={canRetry}
+                busy={busy}
+                onRetry={retryWrite}
+                safe="Trying again will not void it twice."
+              />
+            )
+          }
+          onConfirm={() => void voidInvoice(confirming.invoice)}
+          onCancel={() => {
+            setConfirming(null);
+            setError("");
+          }}
+        />
+      )}
+      {confirming?.kind === "customer" && (
+        <ConfirmDialog
+          title="Delete this customer?"
+          intro={
+            <>
+              This permanently deletes <b>{confirming.customer.name}</b> and
+              their stored address, telephone, email and BRN.
+            </>
+          }
+          detail="They have no invoices, so nothing on the ledger changes. Deleting cannot be undone."
+          confirmPhrase={confirming.customer.name}
+          confirmLabel="Delete customer"
+          busy={busy}
+          error={
+            error && (
+              <WriteError
+                error={error}
+                canRetry={canRetry}
+                busy={busy}
+                onRetry={retryWrite}
+                safe="Trying again is safe."
+              />
+            )
+          }
+          onConfirm={() => void removeCustomer(confirming.customer)}
+          onCancel={() => {
+            setConfirming(null);
+            setError("");
+          }}
+        />
       )}
     </div>
   );

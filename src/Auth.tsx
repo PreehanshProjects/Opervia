@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { ArrowRight, Check, ShieldCheck } from "lucide-react";
 import { supabase } from "./api";
+import { authRedirect } from "./lib/platform";
 import Brand from "./Brand";
 export default function Auth({
   onDemo,
@@ -31,7 +32,8 @@ export default function Auth({
     setError("");
     setMessage("");
     try {
-      const redirect = window.location.origin;
+      // Native builds send the user back through the app scheme, not the web origin.
+      const redirect = authRedirect();
       if (mode === "login") {
         const r = await supabase.auth.signInWithPassword({ email, password });
         if (r.error) throw r.error;
@@ -47,7 +49,7 @@ export default function Auth({
       }
       if (mode === "reset") {
         const r = await supabase.auth.resetPasswordForEmail(email, {
-          redirectTo: redirect + "/?recovery=1",
+          redirectTo: authRedirect("/?recovery=1"),
         });
         if (r.error) throw r.error;
         setMessage(

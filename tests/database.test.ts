@@ -41,15 +41,16 @@ beforeAll(async () => {
     "create role anon; create role authenticated; create schema auth; create table auth.users(id uuid primary key); create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid $$; grant usage on schema auth,public to anon,authenticated; grant execute on function auth.uid() to anon,authenticated;",
   );
   await db.query("insert into auth.users values ($1),($2)", [userA, userB]);
-  await db.exec(
-    readFileSync(
-      new URL(
-        "../supabase/migrations/202609130001_opervia.sql",
-        import.meta.url,
+  for (const file of [
+    "202609130001_opervia.sql",
+    "202609140001_mauritius_today.sql",
+  ])
+    await db.exec(
+      readFileSync(
+        new URL(`../supabase/migrations/${file}`, import.meta.url),
+        "utf8",
       ),
-      "utf8",
-    ),
-  );
+    );
   await asUser(userA);
   await db.query("insert into public.business_profiles values($1,$2)", [
     userA,
@@ -240,5 +241,72 @@ describe.sequential("PostgreSQL financial rules and account isolation", () => {
     expect((await db.query("select * from public.expenses")).rows).toHaveLength(
       0,
     );
+  });
+});
+
+describe("dates are reckoned in Mauritius, not UTC", () => {
+  // The app takes "today" from the device clock (UTC+4). Postgres current_date
+  // is UTC. Between 00:00 and 04:00 local the two disagree by a day, and every
+  // record dated today was rejected as being in the future.
+  const mauritiusToday = () =>
+    new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Indian/Mauritius",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(new Date());
+
+  it("opervia_today() is the Mauritius date whatever the session timezone", async () => {
+    const expected = mauritiusToday();
+    for (const tz of ["UTC", "Pacific/Midway", "Pacific/Kiritimati"]) {
+      await db.exec(`set timezone = '${tz}'`);
+      const r = await db.query<{ d: string }>(
+        "select public.opervia_today()::text as d",
+      );
+      expect(r.rows[0].d).toBe(expected);
+    }
+    await db.exec("reset timezone");
+  });
+
+  it("accepts an expense dated today in Mauritius", async () => {
+    await asUser(userA);
+    // This is the exact insert that failed with 23514 in the early hours.
+    await expect(
+      db.query(
+        "insert into public.expenses(owner_id,date,description,category,amount) values($1,public.opervia_today(),$2,$3,$4)",
+        [userA, "Late night fuel", "Transport", 250],
+      ),
+    ).resolves.toBeDefined();
+  });
+
+  it("still refuses an expense dated tomorrow", async () => {
+    await asUser(userA);
+    await expect(
+      db.query(
+        "insert into public.expenses(owner_id,date,description,category,amount) values($1,public.opervia_today()+1,$2,$3,$4)",
+        [userA, "Future fuel", "Transport", 250],
+      ),
+    ).rejects.toThrow(/expenses_date_check/);
+  });
+
+  it("accepts a payment dated today in Mauritius", async () => {
+    await asUser(userA);
+    const id = "20000000-0000-4000-8000-000000000090";
+    await rpc("create_invoice", {
+      ...invoice(id),
+      date: "2026-01-01",
+      deposit: 0,
+    });
+    const today = mauritiusToday();
+    await expect(
+      rpc("record_payment", {
+        id: "30000000-0000-4000-8000-000000000090",
+        invoice_id: id,
+        date: today,
+        amount: 1,
+        method: "Cash",
+        reference: "",
+      }),
+    ).resolves.toBeDefined();
   });
 });
