@@ -7,7 +7,7 @@
   font-weight: 400;
   font-size: 14px;
   --green: #173f35;
-  --muted: #7b857f;
+  --muted: #6b746f;
   --border: #e5e9e2;
   --lime: #d6edb0;
 }
@@ -101,12 +101,12 @@ textarea {
 input:focus,
 select:focus,
 textarea:focus {
-  outline: 2px solid #9fbd90;
+  outline: 2px solid #557d4b;
   outline-offset: 1px;
 }
 input::placeholder,
 textarea::placeholder {
-  color: #99a098;
+  color: #717970;
 }
 textarea {
   resize: vertical;
@@ -163,12 +163,16 @@ small {
   font-weight: 600;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 9px;
   color: #315c44;
+  min-height: 44px;
+  padding: 0 4px;
+  margin: 0 -4px;
 }
 .icon-button {
-  width: 34px;
-  height: 34px;
+  width: 44px;
+  height: 44px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -182,7 +186,7 @@ small {
   font-size: 10px;
   letter-spacing: 1.5px;
   font-weight: 700;
-  color: #7b8775;
+  color: #6b7565;
   display: block;
   margin-bottom: 11px;
 }
@@ -191,22 +195,20 @@ small {
   align-items: center;
   font-family: "Manrope", sans-serif;
   font-size: 29px;
-  letter-spacing: -1.5px;
+  letter-spacing: -1.3px;
   font-weight: 800;
+  gap: 11px;
+  line-height: 1;
 }
 .brand-mark {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 38px;
-  height: 38px;
-  border-radius: 11px;
-  background: var(--green);
-  color: var(--lime);
-  margin-right: 10px;
+  display: block;
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  border-radius: 28.125%;
 }
-.brand-dot {
-  color: #91ae6f;
+.brand-wordmark {
+  padding-bottom: 3px;
 }
 .app-shell {
   display: flex;
@@ -260,7 +262,7 @@ small {
   max-width: 118px;
 }
 .workspace small {
-  color: #91988d;
+  color: #6f776b;
   font-size: 10px;
   display: block;
   margin-top: 4px;
@@ -277,7 +279,7 @@ small {
   font-size: 9px;
   letter-spacing: 1.5px;
   font-weight: 600;
-  color: #969c90;
+  color: #72796c;
   margin: 0 12px 13px;
 }
 nav {
@@ -292,7 +294,7 @@ nav button {
   min-height: 45px;
   padding: 0 14px;
   text-align: left;
-  color: #7b857c;
+  color: #707971;
   border-radius: 8px;
   font-size: 13px;
 }
@@ -333,7 +335,7 @@ nav button.active svg {
 }
 .sidebar-note p {
   font-size: 11px;
-  color: #8b9180;
+  color: #6e7464;
   margin-top: 7px;
   line-height: 1.7;
 }
@@ -343,7 +345,8 @@ nav button.active svg {
   gap: 15px;
   font-size: 11px;
   font-weight: 600;
-  margin-top: 16px;
+  margin-top: 8px;
+  min-height: 44px;
   padding: 0;
 }
 .sidebar-bottom {
@@ -352,7 +355,7 @@ nav button.active svg {
   display: flex;
   align-items: center;
   gap: 8px;
-  color: #919a8e;
+  color: #70796c;
   font-size: 10px;
 }
 .sidebar-bottom .icon-button {
@@ -467,7 +470,7 @@ nav button.active svg {
   align-items: center;
   justify-content: space-between;
   gap: 7px;
-  color: #788470;
+  color: #6f7a68;
   font-size: 11px;
 }
 .stat-card i {
@@ -485,9 +488,9 @@ nav button.active svg {
   white-space: nowrap;
 }
 .stat-card p {
-  font-size: 10px;
+  font-size: 11px;
   margin-top: 10px;
-  color: #98a08e;
+  color: #717966;
 }
 .stat-card.featured {
   background: var(--green);
@@ -528,8 +531,8 @@ nav button.active svg {
   font-size: 16px;
 }
 .panel-heading p {
-  font-size: 11px;
-  color: #949b8a;
+  font-size: 12px;
+  color: #727968;
   margin-top: 6px;
 }
 .table-scroll {
@@ -539,14 +542,14 @@ nav button.active svg {
   width: 100%;
   border-collapse: collapse;
   text-align: left;
-  font-size: 11px;
+  font-size: 13px;
   white-space: nowrap;
 }
 .data-table th {
-  font-size: 9px;
+  font-size: 11px;
   letter-spacing: 0.7px;
   font-weight: 500;
-  color: #969e8c;
+  color: #6e7664;
   background: #fafbf7;
   border-top: 1px solid #f0f2ea;
   border-bottom: 1px solid #eef0e8;
@@ -569,18 +572,19 @@ nav button.active svg {
 .data-table small {
   display: block;
   margin-top: 5px;
-  color: #909989;
-  font-size: 10px;
+  color: #707a69;
+  font-size: 11px;
 }
 .data-table td > b {
   font-weight: 550;
 }
 .table-link {
   font-weight: 650;
-  font-size: 12px;
-  padding: 4px 0;
+  font-size: 13px;
+  padding: 12px 0;
   color: #334f3c;
-  min-height: 28px;
+  min-height: 44px;
+  text-align: left;
 }
 .table-link:hover {
   text-decoration: underline;
@@ -598,10 +602,10 @@ nav button.active svg {
   gap: 5px;
   padding: 5px 9px;
   border-radius: 6px;
-  font-size: 10px;
+  font-size: 11px;
   white-space: nowrap;
   background: #f0f1ec;
-  color: #818876;
+  color: #6a7061;
 }
 .badge:before {
   content: "";
@@ -611,23 +615,23 @@ nav button.active svg {
   background: currentColor;
 }
 .badge.paid {
-  color: #527b49;
+  color: #507847;
   background: #edf4e5;
 }
 .badge.partial {
-  color: #a18539;
+  color: #846d2f;
   background: #faf3dd;
 }
 .badge.overdue {
-  color: #b86e57;
+  color: #a35b45;
   background: #fcf0e9;
 }
 .badge.unpaid {
-  color: #728393;
+  color: #61717f;
   background: #eff3f6;
 }
 .badge.void {
-  color: #8c8282;
+  color: #726868;
   background: #eeeaea;
 }
 .right-stack {
@@ -647,7 +651,7 @@ nav button.active svg {
   display: grid;
   place-items: center;
   background: #e2e9d0;
-  color: #6f8750;
+  color: #5a6d41;
   margin-bottom: 22px;
 }
 .collect-card .eyebrow {
@@ -660,7 +664,7 @@ nav button.active svg {
 }
 .collect-card p {
   font-size: 11px;
-  color: #8b947c;
+  color: #69715c;
   margin-top: 11px;
 }
 .collect-card strong {
@@ -712,7 +716,7 @@ nav button.active svg {
   align-items: center;
   gap: 8px;
   font-size: 10px;
-  color: #9ba38f;
+  color: #717a64;
   margin-top: 24px;
 }
 .bottom-note > span {
@@ -722,16 +726,21 @@ nav button.active svg {
   padding: 25px 37px;
   display: flex;
   align-items: center;
-  gap: 14px;
-  color: #a8ad9d;
-  font-size: 10px;
+  gap: 9px;
+  color: #6e7461;
+  font-size: 11px;
+}
+.footer-mark {
+  border-radius: 28.125%;
+  flex-shrink: 0;
 }
 .app-footer > span {
   font-family: "Manrope";
   font-size: 16px;
   font-weight: 750;
   letter-spacing: -0.7px;
-  color: #65745b;
+  color: #4f5f47;
+  margin-right: 5px;
 }
 .demo-banner {
   display: flex;
@@ -741,13 +750,14 @@ nav button.active svg {
   padding: 9px 37px;
   font-size: 10px;
   background: #f4eedc;
-  color: #948152;
+  color: #7a6b44;
 }
 .demo-banner button {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 10px;
+  font-size: 11px;
+  min-height: 44px;
   text-decoration: underline;
 }
 .list-toolbar {
@@ -766,9 +776,9 @@ nav button.active svg {
 .tabs button {
   border-radius: 6px;
   padding: 8px 12px;
-  font-size: 11px;
+  font-size: 12px;
   color: #8a9580;
-  min-height: 36px;
+  min-height: 44px;
 }
 .tabs button.active {
   background: #edf2e5;
@@ -782,14 +792,14 @@ nav button.active svg {
   border: 1px solid var(--border);
   border-radius: 7px;
   padding: 0 11px;
-  color: #9aa48f;
+  color: #6f7a63;
   background: #fff;
 }
 .search-box input {
   border: 0;
-  min-height: 36px;
+  min-height: 44px;
   padding: 8px 0;
-  font-size: 11px;
+  font-size: 13px;
   background: transparent;
   outline-offset: 2px;
 }
@@ -855,14 +865,14 @@ nav button.active svg {
   height: 43px;
   border-radius: 12px;
   background: #eef1e5;
-  color: #778965;
+  color: #637254;
   font-weight: 600;
 }
 .customer-card h3 {
   font-size: 16px;
 }
 .customer-card p {
-  color: #929c85;
+  color: #707a63;
   font-size: 12px;
   margin-top: 6px;
 }
@@ -988,6 +998,20 @@ nav button.active svg {
   border-radius: 15px;
   box-shadow: 0 24px 80px #0f2f2433;
   position: relative;
+  /* The dialog scrolls inside itself so its header and action bar can stay put. */
+  max-height: calc(100dvh - 70px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.modal-body {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  flex: 1;
+  min-height: 0;
+}
+.modal-suspended {
+  overflow: hidden;
 }
 .modal-wide {
   width: 1050px;
@@ -999,11 +1023,13 @@ nav button.active svg {
   padding: 19px 25px;
   border-bottom: 1px solid var(--border);
   gap: 20px;
+  flex-shrink: 0;
+  background: #fff;
 }
 .modal-header h2 {
   font-size: 18px;
 }
-.modal > .error {
+.modal-body > .error {
   margin: 0 25px 25px;
 }
 .form-section-heading {
@@ -1057,7 +1083,7 @@ nav button.active svg {
   white-space: nowrap;
 }
 .item-row .icon-button {
-  width: 26px;
+  width: 44px;
   margin-bottom: 5px;
   color: #9d9e8e;
 }
@@ -1112,16 +1138,20 @@ nav button.active svg {
 .form-footer {
   margin-top: 30px;
   border-top: 1px solid var(--border);
-  padding-top: 22px;
+  padding: 18px 0 0;
   display: flex;
   justify-content: space-between;
   align-items: center;
   gap: 25px;
+  position: sticky;
+  bottom: 0;
+  background: #fff;
+  z-index: 2;
 }
 .form-footer p {
-  font-size: 11px;
+  font-size: 12px;
   max-width: 480px;
-  color: #8d9880;
+  color: #6d7763;
 }
 .print-toolbar {
   display: flex;
@@ -1131,10 +1161,14 @@ nav button.active svg {
   padding: 20px 25px;
   background: #f9faf6;
   flex-wrap: wrap;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  border-bottom: 1px solid var(--border);
 }
 .print-toolbar p {
   font-size: 12px;
-  color: #8c9980;
+  color: #6d7763;
 }
 .button-row {
   display: flex;
@@ -1306,7 +1340,7 @@ nav button.active svg {
   border-top: 1px solid #e9eddf;
   margin-top: 45px;
   padding-top: 13px;
-  color: #acb59c;
+  color: #707b5c;
   font-size: 8px;
   display: flex;
   justify-content: space-between;
@@ -1348,7 +1382,7 @@ nav button.active svg {
 }
 .success {
   background: #edf5e6;
-  color: #54793f;
+  color: #54783f;
   padding: 12px;
   border-radius: 8px;
   font-size: 12px;
@@ -1379,7 +1413,7 @@ nav button.active svg {
   border-radius: 9px;
   font-size: 12px;
   margin: 20px 0;
-  color: #7d8a64;
+  color: #697454;
 }
 .setup-note svg {
   flex-shrink: 0;
@@ -1392,7 +1426,20 @@ nav button.active svg {
   height: 100vh;
   display: grid;
   place-items: center;
-  color: #748966;
+  align-content: center;
+  gap: 18px;
+  color: #5f7355;
+  font-size: 13px;
+}
+.loading-screen img {
+  border-radius: 28.125%;
+  animation: mark-in 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+}
+@keyframes mark-in {
+  from {
+    opacity: 0;
+    transform: scale(0.92);
+  }
 }
 .spin {
   animation: spin 1s linear infinite;
@@ -1437,8 +1484,7 @@ nav button.active svg {
   z-index: 1;
 }
 .auth-story .brand-mark {
-  background: #d2e8b0;
-  color: #173f35;
+  box-shadow: 0 0 0 1px #d6edb030;
 }
 .auth-story .eyebrow {
   font-size: 9px;
@@ -1536,7 +1582,7 @@ nav button.active svg {
   padding: 0 12px;
   font-size: 8px;
   letter-spacing: 1px;
-  color: #a7b095;
+  color: #6d7859;
 }
 .auth-security {
   display: flex;
@@ -1706,23 +1752,19 @@ nav button.active svg {
 }
 @media (max-width: 760px) {
   .sidebar {
-    transform: translateX(-100%);
-    transition: transform 0.2s;
-    width: 246px;
-  }
-  .sidebar.open {
-    transform: translateX(0);
-  }
-  .nav-scrim {
-    display: block;
-    position: fixed;
-    inset: 0;
-    background: #183b3260;
-    z-index: 25;
+    display: none;
   }
   .app-main {
     margin-left: 0;
     width: 100%;
+  }
+  /* Clear the bar AND the floating action, so no row action is ever buried
+     under the FAB in the bottom-right corner. */
+  .content {
+    padding-bottom: calc(168px + env(safe-area-inset-bottom));
+  }
+  .app-footer {
+    display: none;
   }
   .topbar {
     height: 65px;
@@ -1734,7 +1776,15 @@ nav button.active svg {
   .topbar-right {
     gap: 10px !important;
   }
+  /* Settings and sign-out are the sidebar's only jobs that the bottom bar does
+     not take over, so on mobile they must stay visible here. */
   .topbar-right > .icon-button {
+    display: inline-flex;
+  }
+  .topbar-right {
+    gap: 4px !important;
+  }
+  .connection {
     display: none;
   }
   .breadcrumb {
@@ -1754,8 +1804,8 @@ nav button.active svg {
   }
   .page-heading {
     flex-direction: column;
-    gap: 17px;
-    margin-bottom: 23px;
+    gap: 13px;
+    margin-bottom: 18px;
   }
   .heading-actions {
     flex-direction: row;
@@ -1765,16 +1815,20 @@ nav button.active svg {
   .heading-actions .btn {
     flex: 1;
   }
+  /* The heading keeps its voice but gives the data back its room: on a phone
+     this block is the only thing between the top of the screen and the numbers. */
   .page-heading h1 {
-    font-size: 30px;
+    font-size: 25px;
+    letter-spacing: -0.9px;
   }
   .page-heading p {
-    font-size: 11px;
-    margin-top: 8px;
+    font-size: 12px;
+    margin-top: 5px;
+    line-height: 1.5;
   }
   .eyebrow {
     font-size: 9px;
-    margin-bottom: 10px;
+    margin-bottom: 6px;
   }
   .stats-grid {
     gap: 12px;
@@ -1848,6 +1902,7 @@ nav button.active svg {
   }
   .tabs button {
     padding: 7px 10px;
+    min-height: 44px;
   }
   .ledger-summary {
     align-items: flex-start;
@@ -2033,7 +2088,32 @@ nav button.active svg {
     bottom: -160px;
   }
 }
-@media (max-width: 380px) {
+/* 420px, not 380px: a 390px iPhone is the most common phone this is used on and
+   must get the single-column layout, not the tablet one. */
+/* iOS Safari zooms the viewport when a focused field is under 16px. Phone entry
+   is a primary flow here, so fields go to 16px on touch-sized screens. */
+@media (max-width: 760px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+  /* Show the whole sheet instead of forcing a 640px horizontal scroll. */
+  .print-area {
+    display: flex;
+    justify-content: center;
+  }
+  .invoice-paper {
+    min-width: 640px;
+    transform: scale(var(--paper-scale, 0.52));
+    transform-origin: top center;
+    margin-bottom: calc(-1000px * (1 - var(--paper-scale, 0.52)));
+  }
+}
+@media (max-width: 420px) {
+  .invoice-paper {
+    --paper-scale: 0.44;
+  }
   .content {
     padding: 23px 14px 14px;
   }
@@ -2107,7 +2187,7 @@ nav button.active svg {
     padding-left: 0;
   }
   .invoice-list-table .icon-button {
-    width: 24px;
+    width: 36px;
   }
   .invoice-list-table small {
     max-width: 110px;
@@ -2163,7 +2243,17 @@ nav button.active svg {
     box-shadow: none;
     width: auto;
     max-width: none;
+    max-height: none;
     border-radius: 0;
+    display: block;
+    overflow: visible;
+  }
+  .modal-body {
+    overflow: visible;
+  }
+  .form-footer,
+  .print-toolbar {
+    position: static;
   }
   .print-area {
     padding: 0;
@@ -2219,5 +2309,229 @@ nav button.active svg {
   a {
     color: inherit;
     text-decoration: none;
+  }
+}
+
+/* --- Additions from the hardening pass --- */
+
+/* A label that carries an inline action ("Customer  + New"). */
+/* A field whose label carries an inline action. Mirrors the bare <label>
+   layout so it sits flush in a form grid. */
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+.label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 20px;
+}
+.label-row label {
+  font-size: 12px;
+  font-weight: 600;
+}
+.label-row .text-button {
+  min-height: 20px;
+  font-size: 11px;
+  margin: 0;
+  padding: 0;
+}
+
+/* Keyboard affordance on the Add item button. */
+.key-hint {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  color: #6d7763;
+  border: 1px solid #dde3d9;
+  border-radius: 4px;
+  padding: 1px 5px;
+  margin-left: 2px;
+}
+
+/* Write failures: the message, then the way out of it. */
+.error-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+.error-actions .btn {
+  min-height: 40px;
+}
+.error-actions small {
+  color: #8a5a4a;
+  font-size: 11px;
+}
+
+/* The restored-draft notice reuses the setup-note shell. */
+.setup-note[role="status"] {
+  align-items: flex-start;
+  margin-bottom: 22px;
+}
+.setup-note[role="status"] .text-button {
+  white-space: nowrap;
+}
+
+/* --- Mobile bottom navigation --- */
+
+
+.bottom-nav {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 40;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  align-items: stretch;
+  gap: 2px;
+  padding: 7px 6px calc(7px + env(safe-area-inset-bottom));
+  background: #fffffff2;
+  backdrop-filter: blur(16px) saturate(1.5);
+  border-top: 1px solid var(--border);
+  /* Green-black, per the system: a neutral shadow reads cold on warm paper. */
+  box-shadow: 0 -3px 22px #173f350f;
+}
+.bottom-nav button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-height: 52px;
+  padding: 4px 2px;
+  border-radius: 11px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: -0.1px;
+  color: #707971;
+  transition: color 0.18s cubic-bezier(0.22, 1, 0.36, 1);
+}
+/* The pill behind the icon is the moving part; the label stays put. */
+.bottom-nav .nav-icon {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 28px;
+  border-radius: 9px;
+  color: #7c877d;
+  background: transparent;
+  transition:
+    background 0.22s cubic-bezier(0.22, 1, 0.36, 1),
+    color 0.18s ease;
+}
+/* Three signals at once: pill, icon color, label weight and color. */
+.bottom-nav button.active {
+  color: #294a36;
+  font-weight: 700;
+}
+.bottom-nav button.active .nav-icon {
+  background: #edf3e5;
+  color: #3f6b3a;
+}
+.bottom-nav button:active .nav-icon {
+  transform: scale(0.94);
+}
+.bottom-nav button:focus-visible {
+  outline: 2px solid #557d4b;
+  outline-offset: -2px;
+}
+.nav-dot {
+  position: absolute;
+  top: -3px;
+  right: 3px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: var(--green);
+  color: #e4f2ce;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 16px;
+  text-align: center;
+  border: 2px solid #fff;
+  box-sizing: content-box;
+}
+.bottom-nav button.active .nav-dot {
+  border-color: #edf3e5;
+}
+
+/* The primary action, in reach of a thumb and above the bar. */
+.fab {
+  display: inline-flex;
+  position: fixed;
+  right: 16px;
+  bottom: calc(86px + env(safe-area-inset-bottom));
+  z-index: 41;
+  align-items: center;
+  justify-content: center;
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  background: var(--green);
+  color: #fff;
+  box-shadow:
+    0 8px 22px #173f3538,
+    0 2px 6px #173f3520;
+  transition:
+    transform 0.24s cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 0.2s ease,
+    background 0.18s ease;
+}
+/* Hidden until the page has scrolled; see the scroll handler in App. */
+.fab {
+  opacity: 0;
+  transform: scale(0.8) translateY(10px);
+  pointer-events: none;
+}
+.fab-in {
+  opacity: 1;
+  transform: none;
+  pointer-events: auto;
+}
+.fab:hover {
+  background: #265747;
+}
+.fab:active {
+  transform: scale(0.93);
+}
+.fab:focus-visible {
+  outline: 2px solid #557d4b;
+  outline-offset: 3px;
+}
+
+.topbar-mark {
+  display: block;
+  border-radius: 28.125%;
+  flex-shrink: 0;
+}
+
+/* Nothing floating belongs on paper. */
+@media print {
+  .bottom-nav,
+  .fab,
+  .topbar-mark {
+    display: none !important;
+  }
+}
+
+/* Desktop keeps the sidebar exactly as it was. This is deliberately the last
+   rule in the file: these four carry a real display value in their base rules,
+   so only a later declaration can hide them above the mobile breakpoint. */
+@media (min-width: 761px) {
+  .bottom-nav,
+  .fab,
+  .topbar-mark,
+  .topbar-signout {
+    display: none;
   }
 }

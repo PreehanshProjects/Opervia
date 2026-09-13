@@ -9,7 +9,7 @@ test("A4 blank and completed invoices produce printable PDFs", async ({
   await page.goto("/");
   await page.getByRole("button", { name: "Explore the demo" }).click();
   await page
-    .locator("nav")
+    .locator(".sidebar nav")
     .getByRole("button", { name: "Settings", exact: true })
     .click();
   await page
@@ -32,7 +32,7 @@ test("A4 blank and completed invoices produce printable PDFs", async ({
     .fill("000012340000");
   await page.getByRole("button", { name: "Save details" }).click();
   await page
-    .locator("nav")
+    .locator(".sidebar nav")
     .getByRole("button", { name: "Overview", exact: true })
     .click();
   await page

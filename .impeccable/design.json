@@ -1,0 +1,274 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-09-14T00:00:00.000Z",
+  "title": "Design System: Opervia",
+  "extensions": {
+    "colorMeta": {
+      "ledger-green": {
+        "role": "primary",
+        "displayName": "Ledger Green",
+        "canonical": "#173f35",
+        "tonalRamp": ["#0a1c17", "#0f2a23", "#173f35", "#265747", "#3a7460", "#5b9a82", "#93c3ae", "#d3e7dd"]
+      },
+      "fresh-lime": {
+        "role": "primary",
+        "displayName": "Fresh Lime",
+        "canonical": "#d6edb0",
+        "tonalRamp": ["#2c3d17", "#425b22", "#5c7d31", "#7ba148", "#9bc069", "#b9d78f", "#d6edb0", "#eef7dd"]
+      },
+      "tint-green": {
+        "role": "secondary",
+        "displayName": "Tint Green",
+        "canonical": "#edf2e5",
+        "tonalRamp": ["#2b3125", "#414937", "#5c674e", "#7b876b", "#9ca892", "#c3ccba", "#edf2e5", "#f8faf4"]
+      },
+      "paper": {
+        "role": "neutral",
+        "displayName": "Paper",
+        "canonical": "#f7f8f5",
+        "tonalRamp": ["#26281f", "#3b3e33", "#555a4b", "#767c69", "#9ba18e", "#c5cabb", "#e5e9e2", "#f7f8f5"]
+      },
+      "surface": {
+        "role": "neutral",
+        "displayName": "Surface",
+        "canonical": "#ffffff",
+        "tonalRamp": ["#1a1a1a", "#333333", "#4d4d4d", "#737373", "#a6a6a6", "#d4d4d4", "#f2f2f2", "#ffffff"]
+      },
+      "surface-sunken": {
+        "role": "neutral",
+        "displayName": "Sunken Surface",
+        "canonical": "#fafbf7",
+        "tonalRamp": ["#26281f", "#3d4034", "#585c4a", "#7a7f69", "#a2a792", "#cbcfbd", "#eef0e6", "#fafbf7"]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Ink",
+        "canonical": "#233c35",
+        "tonalRamp": ["#0d1714", "#162722", "#233c35", "#33564c", "#477468", "#6a988b", "#a2c3b9", "#dae8e3"]
+      },
+      "ink-muted": {
+        "role": "neutral",
+        "displayName": "Muted Ink",
+        "canonical": "#7b857f",
+        "tonalRamp": ["#1e211f", "#2f3432", "#454b48", "#5f6762", "#7b857f", "#9da79f", "#c3cac5", "#e6eae7"]
+      },
+      "border": {
+        "role": "neutral",
+        "displayName": "Border",
+        "canonical": "#e5e9e2",
+        "tonalRamp": ["#24261f", "#393c33", "#525749", "#717866", "#98a08b", "#c2c8b8", "#e5e9e2", "#f4f6f1"]
+      },
+      "status-paid": {
+        "role": "tertiary",
+        "displayName": "Paid Green",
+        "canonical": "#527b49",
+        "tonalRamp": ["#14200f", "#20331a", "#314d27", "#41663a", "#527b49", "#7a9e6f", "#a9c49f", "#edf4e5"]
+      },
+      "status-partial": {
+        "role": "tertiary",
+        "displayName": "Partial Amber",
+        "canonical": "#a18539",
+        "tonalRamp": ["#2b2210", "#42351a", "#5e4c25", "#7f6830", "#a18539", "#c0a86a", "#d9c99f", "#faf3dd"]
+      },
+      "status-overdue": {
+        "role": "tertiary",
+        "displayName": "Overdue Clay",
+        "canonical": "#b86e57",
+        "tonalRamp": ["#2e1a13", "#472a1e", "#653d2c", "#8a533c", "#b86e57", "#cf9481", "#e3bcaf", "#fcf0e9"]
+      },
+      "status-unpaid": {
+        "role": "tertiary",
+        "displayName": "Unpaid Slate",
+        "canonical": "#728393",
+        "tonalRamp": ["#1a2025", "#2a333b", "#3e4a55", "#576672", "#728393", "#98a5b1", "#c1c9d0", "#eff3f6"]
+      },
+      "status-void": {
+        "role": "tertiary",
+        "displayName": "Void Grey",
+        "canonical": "#8c8282",
+        "tonalRamp": ["#211f1f", "#343131", "#4b4747", "#676161", "#8c8282", "#aca4a4", "#cbc5c5", "#eeeaea"]
+      },
+      "error": {
+        "role": "tertiary",
+        "displayName": "Error Rust",
+        "canonical": "#a44832",
+        "tonalRamp": ["#2a110c", "#421a13", "#5f251b", "#813425", "#a44832", "#c37765", "#dda99c", "#fff0ed"]
+      },
+      "success": {
+        "role": "tertiary",
+        "displayName": "Success Moss",
+        "canonical": "#54793f",
+        "tonalRamp": ["#151f0f", "#22301a", "#334927", "#436133", "#54793f", "#7c9c6b", "#a9c398", "#edf5e6"]
+      },
+      "demo-amber": {
+        "role": "tertiary",
+        "displayName": "Demo Amber",
+        "canonical": "#948152",
+        "tonalRamp": ["#262115", "#3b3421", "#554a2f", "#72653f", "#948152", "#b3a37d", "#d0c5ab", "#f4eedc"]
+      }
+    },
+    "typographyMeta": {
+      "brand": { "displayName": "Brand", "purpose": "The Opervia wordmark only. Tightest tracking in the system (-1.5px)." },
+      "display": { "displayName": "Display", "purpose": "Page titles and the auth headline. One per screen." },
+      "figure": { "displayName": "Figure", "purpose": "Money and counts on stat cards. Always tabular numerals." },
+      "headline": { "displayName": "Headline", "purpose": "Panel and modal headings." },
+      "title": { "displayName": "Title", "purpose": "Card titles and in-form section headings." },
+      "body": { "displayName": "Body", "purpose": "The root size. Paragraphs run line-height 1.7." },
+      "label": { "displayName": "Label", "purpose": "Form labels, button text, table links. Semibold creates emphasis without color." },
+      "micro": { "displayName": "Micro", "purpose": "Table cells, captions, dense metadata. The working size for data." },
+      "eyebrow": { "displayName": "Eyebrow", "purpose": "Section kickers and nav group labels. Wide tracking (+1.5px) at 10px." }
+    },
+    "shadows": [
+      { "name": "button-lift", "value": "0 3px 4px #173f3510", "purpose": "The primary button only. A 6% seat, not a lift." },
+      { "name": "card-hover", "value": "0 4px 16px #173f3506", "purpose": "Customer cards on hover, paired with a border shift to #a8bb93 which is the signal that actually registers." },
+      { "name": "paper", "value": "0 3px 15px #173f3510", "purpose": "The invoice sheet resting on the #e9ece4 print desk. A metaphor, not an affordance." },
+      { "name": "modal", "value": "0 24px 80px #0f2f2433", "purpose": "The heaviest shadow in the product, over a #132c2466 backdrop. Detaches the invoice builder from everything behind it." },
+      { "name": "toast", "value": "0 5px 30px #193b3522", "purpose": "Floating confirmation." },
+      { "name": "avatar-ring", "value": "0 0 0 1px #e6e9df", "purpose": "A hairline ring outside the avatar's 3px white stroke." }
+    ],
+    "motion": [
+      { "name": "control", "value": "0.15s", "purpose": "Default transition on buttons and interactive controls." },
+      { "name": "drawer", "value": "transform 0.2s", "purpose": "The off-canvas mobile sidebar sliding in and out below 760px." },
+      { "name": "spin", "value": "@keyframes spin — 360deg linear infinite", "purpose": "The loading indicator on async writes." },
+      { "name": "reduced-motion", "value": "@media (prefers-reduced-motion: reduce) { animation: none !important; transition: none !important }", "purpose": "A global kill switch on all animation and transition. Non-negotiable; new motion must survive it." }
+    ],
+    "breakpoints": [
+      { "name": "wide", "value": "1500px" },
+      { "name": "laptop", "value": "1200px" },
+      { "name": "tablet", "value": "1000px" },
+      { "name": "mobile", "value": "760px" },
+      { "name": "small", "value": "380px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The single committing action on a screen — Save invoice, Record payment, Add customer.",
+      "html": "<button class=\"ds-btn-primary\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M5 12h14\"/><path d=\"M12 5v14\"/></svg>New invoice</button>",
+      "css": ".ds-btn-primary { display: inline-flex; align-items: center; justify-content: center; gap: 9px; min-height: 43px; padding: 11px 17px; border: 1px solid transparent; border-radius: 8px; font-family: 'DM Sans', sans-serif; font-size: 12px; font-weight: 600; white-space: nowrap; background: #173f35; color: #fff; box-shadow: 0 3px 4px #173f3510; cursor: pointer; transition: 0.15s; } .ds-btn-primary:hover { background: #265747; } .ds-btn-primary:focus-visible { outline: 2px solid #557d4b; outline-offset: 4px; } .ds-btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Every non-committing action — Print, Export CSV, Cancel.",
+      "html": "<button class=\"ds-btn-secondary\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><polyline points=\"6 9 6 2 18 2 18 9\"/><path d=\"M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2\"/><rect x=\"6\" y=\"14\" width=\"12\" height=\"8\"/></svg>Print</button>",
+      "css": ".ds-btn-secondary { display: inline-flex; align-items: center; justify-content: center; gap: 9px; min-height: 43px; padding: 11px 17px; border: 1px solid #dde3d9; border-radius: 8px; font-family: 'DM Sans', sans-serif; font-size: 12px; font-weight: 600; white-space: nowrap; background: #fff; color: #233c35; cursor: pointer; transition: 0.15s; } .ds-btn-secondary:hover { background: #f0f4ec; } .ds-btn-secondary:focus-visible { outline: 2px solid #557d4b; outline-offset: 4px; }"
+    },
+    {
+      "name": "Danger Button",
+      "kind": "button",
+      "refersTo": "button-danger",
+      "description": "Void only. Muted rose rather than red, because voiding retires a record rather than deleting it.",
+      "html": "<button class=\"ds-btn-danger\">Void invoice</button>",
+      "css": ".ds-btn-danger { display: inline-flex; align-items: center; justify-content: center; gap: 9px; min-height: 43px; padding: 11px 17px; border: 1px solid #f1d7d1; border-radius: 8px; font-family: 'DM Sans', sans-serif; font-size: 12px; font-weight: 600; white-space: nowrap; background: #fff4f1; color: #a44637; cursor: pointer; transition: 0.15s; } .ds-btn-danger:focus-visible { outline: 2px solid #557d4b; outline-offset: 4px; }"
+    },
+    {
+      "name": "Text Field",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "The label sits above the control in a column-flex wrapper with an 8px gap. Never floating, never inside.",
+      "html": "<label class=\"ds-field\">Customer name<input class=\"ds-input\" type=\"text\" placeholder=\"e.g. Le Comptoir Ltée\" /></label>",
+      "css": ".ds-field { display: flex; flex-direction: column; gap: 8px; font-family: 'DM Sans', sans-serif; font-size: 12px; font-weight: 600; color: #233c35; } .ds-input { width: 100%; min-width: 0; border: 1px solid #dce2d9; border-radius: 8px; background: #fff; color: #233c35; padding: 11px 12px; min-height: 44px; font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 400; } .ds-input::placeholder { color: #99a098; } .ds-input:focus { outline: 2px solid #9fbd90; outline-offset: 1px; }"
+    },
+    {
+      "name": "Status Badge",
+      "kind": "chip",
+      "refersTo": "badge-paid",
+      "description": "Invoice state. Always a currentColor dot AND a word — never color alone.",
+      "html": "<span class=\"ds-badge ds-badge-paid\">Paid</span> <span class=\"ds-badge ds-badge-partial\">Partial</span> <span class=\"ds-badge ds-badge-overdue\">Overdue</span> <span class=\"ds-badge ds-badge-unpaid\">Unpaid</span> <span class=\"ds-badge ds-badge-void\">Void</span>",
+      "css": ".ds-badge { display: inline-flex; align-items: center; gap: 5px; padding: 5px 9px; border-radius: 6px; font-family: 'DM Sans', sans-serif; font-size: 10px; white-space: nowrap; background: #f0f1ec; color: #818876; } .ds-badge:before { content: ''; width: 4px; height: 4px; border-radius: 50%; background: currentColor; } .ds-badge-paid { color: #527b49; background: #edf4e5; } .ds-badge-partial { color: #a18539; background: #faf3dd; } .ds-badge-overdue { color: #b86e57; background: #fcf0e9; } .ds-badge-unpaid { color: #728393; background: #eff3f6; } .ds-badge-void { color: #8c8282; background: #eeeaea; }"
+    },
+    {
+      "name": "Stat Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "An overview figure. Manrope with tabular numerals, label above, caption below. Exactly one featured (inverted) card per screen.",
+      "html": "<div class=\"ds-stat\"><div><span>Outstanding</span><i><svg width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M7 7h10v10\"/><path d=\"M7 17 17 7\"/></svg></i></div><strong>Rs 18,400.00</strong><p>Across 6 unpaid invoices</p></div>",
+      "css": ".ds-stat { border: 1px solid #e5e9e2; background: #fff; border-radius: 12px; padding: 22px 20px; font-family: 'DM Sans', sans-serif; } .ds-stat > div { display: flex; align-items: center; justify-content: space-between; gap: 7px; color: #788470; font-size: 11px; } .ds-stat i { display: flex; font-style: normal; color: #96a087; } .ds-stat > strong { display: block; font-family: 'Manrope', sans-serif; font-weight: 650; font-size: 25px; letter-spacing: -0.8px; margin-top: 22px; white-space: nowrap; font-variant-numeric: tabular-nums; color: #233c35; } .ds-stat p { font-size: 10px; margin: 10px 0 0; color: #98a08e; }"
+    },
+    {
+      "name": "Featured Stat Card",
+      "kind": "card",
+      "refersTo": "card-featured",
+      "description": "The inverted Ledger Green variant. One per screen, never two.",
+      "html": "<div class=\"ds-stat-featured\"><div><span>Net cash movement</span><i><svg width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M12 2v20\"/><path d=\"M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6\"/></svg></i></div><strong>Rs 42,150.00</strong><p>Payments received less expenses. Not profit.</p></div>",
+      "css": ".ds-stat-featured { border: 1px solid #173f35; background: #173f35; border-radius: 12px; padding: 22px 20px; font-family: 'DM Sans', sans-serif; } .ds-stat-featured > div { display: flex; align-items: center; justify-content: space-between; gap: 7px; color: #cfddbf; font-size: 11px; } .ds-stat-featured i { display: flex; font-style: normal; color: #b2d28f; } .ds-stat-featured > strong { display: block; font-family: 'Manrope', sans-serif; font-weight: 650; font-size: 25px; letter-spacing: -0.8px; margin-top: 22px; white-space: nowrap; font-variant-numeric: tabular-nums; color: #e4f2ce; } .ds-stat-featured p { font-size: 10px; margin: 10px 0 0; color: #95b099; }"
+    },
+    {
+      "name": "Sidebar Navigation Item",
+      "kind": "nav",
+      "refersTo": "nav-item",
+      "description": "The active state changes ground, text color and weight together — three simultaneous signals.",
+      "html": "<nav class=\"ds-nav\"><button class=\"ds-nav-item active\"><svg width=\"17\" height=\"17\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><rect x=\"3\" y=\"3\" width=\"7\" height=\"9\"/><rect x=\"14\" y=\"3\" width=\"7\" height=\"5\"/><rect x=\"14\" y=\"12\" width=\"7\" height=\"9\"/><rect x=\"3\" y=\"16\" width=\"7\" height=\"5\"/></svg>Overview</button><button class=\"ds-nav-item\"><svg width=\"17\" height=\"17\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z\"/><path d=\"M14 2v4a2 2 0 0 0 2 2h4\"/></svg>Invoices<span class=\"ds-nav-count\">12</span></button></nav>",
+      "css": ".ds-nav { display: flex; flex-direction: column; gap: 5px; font-family: 'DM Sans', sans-serif; } .ds-nav-item { display: flex; align-items: center; gap: 13px; min-height: 45px; padding: 0 14px; text-align: left; color: #7b857c; border-radius: 8px; font-size: 13px; border: 0; background: none; cursor: pointer; width: 100%; } .ds-nav-item:hover { background: #f5f7f1; } .ds-nav-item.active { color: #294a36; background: #edf3e5; font-weight: 650; } .ds-nav-item.active svg { color: #507244; } .ds-nav-item:focus-visible { outline: 2px solid #557d4b; outline-offset: 4px; } .ds-nav-count { margin-left: auto; background: #e0e8d5; font-size: 10px; padding: 2px 7px; border-radius: 5px; color: #4b6640; }"
+    },
+    {
+      "name": "Data Table",
+      "kind": "custom",
+      "refersTo": null,
+      "description": "The ledger column. Header seated into the panel on sunken surface, money cells in tabular figures, barely-there row hover.",
+      "html": "<div class=\"ds-panel\"><table class=\"ds-table\"><thead><tr><th>Invoice</th><th>Customer</th><th>Status</th><th>Balance</th></tr></thead><tbody><tr><td><button class=\"ds-table-link\">INV-0041</button><small>13 Sep 2026</small></td><td>Le Comptoir Ltée</td><td><span class=\"ds-badge ds-badge-partial\">Partial</span></td><td class=\"ds-number\">Rs 2,150.00</td></tr><tr><td><button class=\"ds-table-link\">INV-0040</button><small>11 Sep 2026</small></td><td>Chez Marie</td><td><span class=\"ds-badge ds-badge-paid\">Paid</span></td><td class=\"ds-number\">Rs 0.00</td></tr></tbody></table></div>",
+      "css": ".ds-panel { border: 1px solid #e5e9e2; border-radius: 12px; background: #fff; overflow: hidden; font-family: 'DM Sans', sans-serif; } .ds-table { width: 100%; border-collapse: collapse; text-align: left; font-size: 11px; white-space: nowrap; color: #233c35; } .ds-table th { font-size: 9px; letter-spacing: 0.7px; font-weight: 500; color: #969e8c; background: #fafbf7; border-top: 1px solid #f0f2ea; border-bottom: 1px solid #eef0e8; padding: 14px 19px; } .ds-table td { padding: 19px; border-bottom: 1px solid #f0f2eb; } .ds-table tr:last-child td { border-bottom: 0; } .ds-table td:first-child, .ds-table th:first-child { padding-left: 24px; } .ds-table tr:hover td { background: #fcfdf9; } .ds-table small { display: block; margin-top: 5px; color: #909989; font-size: 10px; } .ds-table-link { font-weight: 650; font-size: 12px; padding: 4px 0; color: #334f3c; min-height: 28px; border: 0; background: none; cursor: pointer; font-family: inherit; } .ds-table-link:hover { text-decoration: underline; } .ds-number { font-variant-numeric: tabular-nums; font-weight: 500; } .ds-badge { display: inline-flex; align-items: center; gap: 5px; padding: 5px 9px; border-radius: 6px; font-size: 10px; white-space: nowrap; } .ds-badge:before { content: ''; width: 4px; height: 4px; border-radius: 50%; background: currentColor; } .ds-badge-paid { color: #527b49; background: #edf4e5; } .ds-badge-partial { color: #a18539; background: #faf3dd; }"
+    },
+    {
+      "name": "Toast",
+      "kind": "custom",
+      "refersTo": "toast",
+      "description": "Confirmation that a write landed. Ledger Green ground, the only dark floating element.",
+      "html": "<div class=\"ds-toast\"><svg width=\"15\" height=\"15\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><polyline points=\"20 6 9 17 4 12\"/></svg>Payment recorded</div>",
+      "css": ".ds-toast { display: inline-flex; align-items: center; gap: 9px; background: #1b4334; color: #eff6e4; box-shadow: 0 5px 30px #193b3522; border-radius: 9px; padding: 13px 17px; font-family: 'DM Sans', sans-serif; font-size: 12px; font-weight: 600; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Ledger Book",
+    "overview": "Opervia is a well-kept accounts book made digital. Its ancestor is not a SaaS dashboard — it is a bound invoice book with a dark cover, ruled pages, and a column of figures that has to add up. Every visual decision answers to that object: the dark green of the binding, the warm off-white of the page, the single bright ribbon marker, and columns of numbers set in tabular figures so they align down the page the way a hand-ruled column does.\n\nThe system is orderly, durable, and unshowy. It is almost entirely flat — hairline borders and tonal shifts do the separating work that shadows do elsewhere. Color is rationed hard: two greens carry the identity, five muted status tints carry meaning, and the remaining surface is paper. Type is a two-family pairing where the geometric display face handles names and figures while the humanist body face handles everything a person reads at length. Nothing decorates. Density is high without being cramped, because the user is transcribing real work at speed and the screen must be at least as fast as writing a line by hand.\n\nThe center of the product is the printed A4 invoice sheet — a literal page rendered on screen, shadowed, and handed to a customer on paper. The application chrome is the desk the sheet sits on. That hierarchy is the system's organizing idea: the app recedes, the document is the deliverable.",
+    "keyCharacteristics": [
+      "Two-green identity (Ledger Green + Fresh Lime) on a warm paper ground, rationed to roughly 10% of any screen",
+      "Flat by construction: 1px #e5e9e2 borders and tonal tints, not elevation",
+      "Manrope for names and figures, DM Sans for reading; tabular numerals wherever money appears",
+      "A visible paper document at the product's center, with its own type scale and print rules",
+      "Status is always a colored dot AND a word — never color alone",
+      "44px minimum interactive height everywhere; phone and desktop are equal surfaces"
+    ],
+    "rules": [
+      { "name": "The Rationed Green Rule", "body": "Ledger Green covers no more than ~10% of any screen — one primary button, one featured card, the brand mark. When a second element wants it, the answer is Tint Green or a border, not more green.", "section": "colors" },
+      { "name": "The Ribbon Rule", "body": "Fresh Lime is identity, never state. It may not be used for success, selection, emphasis, or any semantic meaning. If a new element wants lime, it wants Tint Green.", "section": "colors" },
+      { "name": "The Two-Signal Rule", "body": "Status is never color alone. Every badge carries a 4px dot in currentColor and a word. A color-blind user, a monochrome print, and a glanced-at phone all read the same fact.", "section": "colors" },
+      { "name": "The Two-Family Rule", "body": "Manrope names and counts. DM Sans reads. A number that represents money is Manrope with tabular figures; a number inside a sentence is DM Sans.", "section": "typography" },
+      { "name": "The Tabular Money Rule", "body": "Any element displaying an amount carries font-variant-numeric: tabular-nums. Columns of money must align on the decimal down the page, exactly as a ruled ledger column does.", "section": "typography" },
+      { "name": "The Semibold-Not-Color Rule", "body": "Emphasis at small sizes comes from weight (600/650), not from color. Colored text is reserved for status and links.", "section": "typography" },
+      { "name": "The Drop, Don't Squeeze Rule", "body": "Below 760px, low-value table columns and decorative icons are removed outright (display: none) rather than compressed. A cramped cell is worse than an absent one when the user is entering an invoice one-handed.", "section": "layout" },
+      { "name": "The Equal Surfaces Rule", "body": "Phone and desktop are both primary. A layout is not finished when it merely survives at 390px — it has to be as fast there.", "section": "layout" },
+      { "name": "The Flat-By-Default Rule", "body": "A new surface gets a 1px #e5e9e2 border and, if it needs grouping, a Tint Green wash. It does not get a shadow. Shadows are reserved for the button, the card hover, the paper sheet, the modal and the toast.", "section": "elevation" },
+      { "name": "The Green-Shadow Rule", "body": "Every shadow is green-black (#173f35 / #0f2f24 / #193b35 with alpha), never rgba(0,0,0,…). A neutral black shadow reads cold against warm paper and is the fastest way to break this system.", "section": "elevation" },
+      { "name": "The Radius Ladder Rule", "body": "Radius scales with surface size: controls 5–8px, raised blocks 9–11px, cards 12px, modal 15px. A 12px radius on a 34px button breaks the ladder and reads as a different product.", "section": "shapes" },
+      { "name": "The 44px Rule", "body": "No interactive element is under 44px of touch height. Inputs are 44px, buttons 43px, nav items 45px. The 34px icon button is the one exception and is only permitted where a larger target sits adjacent.", "section": "components" },
+      { "name": "The Three-Signal Active Rule", "body": "The active nav state changes ground, text color, and weight together. One signal is a hint; three is a fact.", "section": "components" }
+    ],
+    "dos": [
+      "Do give every new surface a 1px #e5e9e2 border instead of a shadow.",
+      "Do use Manrope with tabular figures for anything that represents money, and DM Sans for anything a person reads.",
+      "Do pair every status color with a dot and a word.",
+      "Do keep interactive targets at 44px or above, and test at 390px as a primary width — not as a fallback.",
+      "Do use Tint Green (#edf2e5) when a block needs grouping or a \"you are here\" signal.",
+      "Do hide low-value table columns below 760px rather than compressing them.",
+      "Do tint shadows green-black (#173f35 with alpha) on the rare occasions a shadow is warranted.",
+      "Do keep the invoice sheet's print rules intact when touching it — break-inside: avoid, table-header-group, and print-color-adjust: exact are load-bearing, not decoration.",
+      "Do state exactly what a figure is. \"Net cash movement\" is not profit, and the label must never drift toward implying it is."
+    ],
+    "donts": [
+      "Don't use Fresh Lime (#d6edb0) for state, success, or selection. It is identity only.",
+      "Don't introduce rgba(0,0,0,…) shadows or neutral grey borders — they read cold against warm paper and break the hue family.",
+      "Don't exceed roughly 10% Ledger Green coverage on a screen, or place two featured cards on one view.",
+      "Don't convey status, or anything else, by color alone.",
+      "Don't uppercase button labels. Uppercase belongs to the eyebrow and nowhere else.",
+      "Don't add a third font family. Two is the system.",
+      "Don't break the radius ladder — controls 5–8px, raised blocks 9–11px, cards 12px, modal 15px.",
+      "Don't style the void state as deletion. A voided invoice is retired, stays visible in history, and uses the neutral grey badge for exactly that reason.",
+      "Don't put a shadow on a card at rest, or a hover lift on a panel."
+    ]
+  }
+}

@@ -18,11 +18,21 @@ test("customer, fractional invoice, settlement, ledger and print workflow", asyn
       () => document.documentElement.scrollWidth <= innerWidth,
     ),
   ).toBe(true);
+  // Mobile navigates from the bottom bar; Settings lives in the topbar there.
   const nav = async (name: string) => {
-    if (testInfo.project.name === "mobile")
-      await page.getByRole("button", { name: "Open navigation" }).click();
+    if (testInfo.project.name === "mobile") {
+      if (name === "Settings") {
+        await page.getByRole("button", { name: "Settings" }).click();
+        return;
+      }
+      await page
+        .locator(".bottom-nav")
+        .getByRole("button", { name: new RegExp(`^${name}`) })
+        .click();
+      return;
+    }
     await page
-      .locator("nav")
+      .locator(".sidebar nav")
       .getByRole("button", { name: new RegExp(`^${name}`) })
       .click();
   };
@@ -116,10 +126,8 @@ test("search, blank invoice, void and demo reset", async ({
 }, testInfo) => {
   await page.goto("/");
   await page.getByRole("button", { name: "Explore the demo" }).click();
-  if (testInfo.project.name === "mobile")
-    await page.getByRole("button", { name: "Open navigation" }).click();
   await page
-    .locator("nav")
+    .locator(testInfo.project.name === "mobile" ? ".bottom-nav" : ".sidebar nav")
     .getByRole("button", { name: /Invoices/ })
     .click();
   await page.getByLabel("Search invoices").fill("nothing-matches");

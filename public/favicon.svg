@@ -1,1 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="18" fill="#153f36"/><path d="M18 37V22h11v15c0 8 13 8 13 0V22h7v15c0 21-31 21-31 0" fill="#d4efa3"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <title>Opervia</title>
+  <rect width="64" height="64" rx="18" fill="#173f35"/>
+  <path d="M30 12a20 20 0 1 0 22 22H42a10 10 0 1 1-12-12Z" fill="#d6edb0"/>
+  <path d="M36 12v10a10 10 0 0 1 6 6h10a20 20 0 0 0-16-16Z" fill="#f7f8f5"/>
+</svg>

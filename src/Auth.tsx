@@ -1,14 +1,17 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { ArrowRight, BookOpen, Check, ShieldCheck } from "lucide-react";
+import { ArrowRight, Check, ShieldCheck } from "lucide-react";
 import { supabase } from "./api";
+import Brand from "./Brand";
 export default function Auth({
   onDemo,
   recovery = false,
   onRecovered,
+  sessionEnded = false,
 }: {
   onDemo: () => void;
   recovery?: boolean;
   onRecovered: () => void;
+  sessionEnded?: boolean;
 }) {
   const [mode, setMode] = useState<"login" | "signup" | "reset" | "password">(
     recovery ? "password" : "login",
@@ -69,10 +72,7 @@ export default function Auth({
     <main className="auth-page">
       <section className="auth-story">
         <a className="brand" href="/">
-          <span className="brand-mark">
-            <BookOpen size={23} />
-          </span>
-          opervia<span className="brand-dot">.</span>
+          <Brand />
         </a>
         <div>
           <span className="eyebrow">LESS PAPERWORK. MORE POSSIBILITY.</span>
@@ -110,11 +110,15 @@ export default function Auth({
                 ? "Let’s get you back in."
                 : mode === "password"
                   ? "Choose a new password."
-                  : "Good to have you here."}
+                  : sessionEnded
+                    ? "Let’s finish that invoice."
+                    : "Good to have you here."}
           </h2>
           <p>
             {mode === "login"
-              ? "Sign in to your private business workspace."
+              ? sessionEnded
+                ? "Your session ended while you were working. Sign in and the invoice you had open will still be there."
+                : "Sign in to your private business workspace."
               : mode === "signup"
                 ? "Create your own private business workspace."
                 : "Use a strong password to protect your business."}
