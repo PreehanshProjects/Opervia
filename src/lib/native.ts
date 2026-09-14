@@ -1,7 +1,21 @@
 import { App } from "@capacitor/app";
+import { registerPlugin } from "@capacitor/core";
 import { StatusBar, Style } from "@capacitor/status-bar";
 import { supabase } from "../api";
 import { isNative } from "./platform";
+
+/**
+ * Repaints the strip behind the system bars. MainActivity insets the WebView to
+ * keep the topbar clear of the clock, and whatever that padding is painted is
+ * what shows above the app — so it has to follow the theme.
+ */
+interface NativeShellPlugin {
+  setBackground(options: { color: string }): Promise<void>;
+}
+const NativeShell = registerPlugin<NativeShellPlugin>("NativeShell");
+
+/** The page colour for each theme, matching --page in styles.css. */
+const SHELL = { light: "#f7f8f5", dark: "#0e1a16" } as const;
 
 /**
  * Everything the native shell needs that the web build does not. Called once
@@ -68,15 +82,21 @@ export function initBackButton(onBack: () => boolean) {
  */
 export async function setNativeTheme(resolved: "light" | "dark") {
   if (!isNative()) return;
+  // Dark theme means light system icons, and vice versa.
   await StatusBar.setStyle({
     style: resolved === "dark" ? Style.Dark : Style.Light,
   });
+  // The strip itself. StatusBar.setBackgroundColor cannot do this on
+  // targetSdk 35 — the platform ignores it once edge-to-edge is enforced — so
+  // the content root is painted directly instead.
   try {
-    await StatusBar.setBackgroundColor({
-      color: resolved === "dark" ? "#0e1a16" : "#f7f8f5",
-    });
+    await NativeShell.setBackground({ color: SHELL[resolved] });
   } catch {
-    // Not supported on every Android version; the inset padding still shows
-    // the page colour behind the bar.
+    // Older shell without the plugin: the startup colour still applies.
+  }
+  try {
+    await StatusBar.setBackgroundColor({ color: SHELL[resolved] });
+  } catch {
+    // Ignored on Android 15; harmless where it still works.
   }
 }

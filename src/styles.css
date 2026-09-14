@@ -1308,8 +1308,9 @@ nav button.active svg {
   background: #fff;
   width: 100%;
   min-width: 640px;
+  /* A4 at 96dpi. The preview is the page, so it uses the page ratio exactly. */
   max-width: 794px;
-  min-height: 1000px;
+  min-height: 1123px;
   margin: auto;
   padding: 45px;
   color: #29362d;
@@ -2278,7 +2279,7 @@ nav button.active svg {
     min-width: 640px;
     transform: scale(var(--paper-scale, 0.52));
     transform-origin: top center;
-    margin-bottom: calc(-1000px * (1 - var(--paper-scale, 0.52)));
+    margin-bottom: calc(-1123px * (1 - var(--paper-scale, 0.52)));
   }
 }
 @media (max-width: 420px) {
@@ -2438,10 +2439,20 @@ nav button.active svg {
     width: 100%;
     min-width: 0;
     max-width: none;
-    min-height: 0;
+    /* Fill the sheet, so a short invoice does not leave its signature lines
+       stranded halfway down the page with blank paper beneath them. */
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
     padding: 0;
     box-shadow: none;
     font-size: 10px;
+  }
+  /* Everything above the signatures keeps its natural order; the signature
+     block and footer are pushed to the foot of the last page. */
+  .paper-signatures {
+    margin-top: auto;
+    padding-top: 60px;
   }
   .paper-header {
     break-inside: avoid;
@@ -2459,9 +2470,7 @@ nav button.active svg {
   .paper-signatures {
     break-inside: avoid;
   }
-  .paper-signatures {
-    margin-top: 60px;
-  }
+
   .paper-table th,
   .paper-table td {
     padding: 10px 7px;
@@ -3124,6 +3133,60 @@ nav button.active svg {
     justify-content: center;
   }
   .pager-controls .btn {
+    flex: 1;
+  }
+}
+
+/* --- Unsaved changes --- */
+
+/* A logo preview appears the instant a file is chosen, which looks like it has
+   been applied. It has not been, until Save is pressed — so say that. */
+.logo-pending {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--demo) !important;
+  font-weight: 600;
+}
+.logo-pending svg {
+  flex-shrink: 0;
+}
+.save-bar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+/* Once something is unsaved the bar sticks, so the way to keep it stays in
+   reach however far down the form you have scrolled. */
+.save-bar.unsaved {
+  position: sticky;
+  bottom: 0;
+  margin: 0 -25px -25px;
+  padding: 16px 25px;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  z-index: 2;
+}
+.save-note {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--demo);
+}
+@media (max-width: 760px) {
+  .save-bar.unsaved {
+    margin: 0 -20px -20px;
+    padding: 14px 20px calc(14px + env(safe-area-inset-bottom));
+  }
+  .is-native .save-bar.unsaved {
+    padding-bottom: 14px;
+  }
+  .save-bar .btn {
     flex: 1;
   }
 }

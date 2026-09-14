@@ -128,6 +128,12 @@ export default function App() {
     | { kind: "expense"; expense: Expense }
     | null
   >(null);
+  // Settings holds edits in its own form state until Save is pressed. Leaving
+  // the page would discard them silently, which is how an uploaded logo gets
+  // lost between choosing the file and saving.
+  const [settingsDirty, setSettingsDirty] = useState(false);
+  /** Where the user tried to go while Settings had unsaved edits. */
+  const [pendingPage, setPendingPage] = useState<Page | null>(null);
   const [summary, setSummary] = useState<Summary | null>(null);
   // Bumped after every write; the list views watch it and reload their page.
   const [dataVersion, setDataVersion] = useState(0);
@@ -219,6 +225,10 @@ export default function App() {
   const backRef = useRef<() => boolean>(() => false);
   backRef.current = () => {
     if (busy) return true;
+    if (pendingPage) {
+      setPendingPage(null);
+      return true;
+    }
     if (confirming) {
       setConfirming(null);
       setError("");
@@ -384,6 +394,11 @@ export default function App() {
     }
   }
   function go(p: Page) {
+    if (settingsDirty && page === "Settings" && p !== "Settings") {
+      setPendingPage(p);
+      return;
+    }
+    if (page === "Settings" && p !== "Settings") setSettingsDirty(false);
     setPage(p);
     setSearch("");
     setFilter("All");
@@ -858,6 +873,7 @@ export default function App() {
               )}
               {page === "Settings" && (
                 <BusinessForm
+                  onDirtyChange={setSettingsDirty}
                   theme={theme}
                   onTheme={setTheme}
                   business={data.business}
@@ -1273,6 +1289,30 @@ export default function App() {
             setConfirming(null);
             setError("");
           }}
+        />
+      )}
+      {pendingPage && (
+        <ConfirmDialog
+          title="Leave without saving?"
+          intro={
+            <>
+              Your business details have changes that have not been saved yet.
+            </>
+          }
+          detail="A logo you have chosen is only a preview until you press Save details. Leaving now discards it."
+          confirmLabel="Leave without saving"
+          cancelLabel="Stay and save"
+          busy={false}
+          onConfirm={() => {
+            const target = pendingPage;
+            setPendingPage(null);
+            setSettingsDirty(false);
+            setPage(target);
+            setSearch("");
+            setFilter("All");
+            window.scrollTo({ top: 0 });
+          }}
+          onCancel={() => setPendingPage(null)}
         />
       )}
       {confirming?.kind === "expense" && (

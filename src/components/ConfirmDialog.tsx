@@ -16,6 +16,7 @@ export default function ConfirmDialog({
   detail,
   confirmPhrase,
   confirmLabel,
+  cancelLabel = "Keep it",
   busy,
   error,
   onConfirm,
@@ -27,6 +28,8 @@ export default function ConfirmDialog({
   /** When set, the action stays disabled until the user types this exactly. */
   confirmPhrase?: string;
   confirmLabel: string;
+  /** Defaults to "Keep it", which reads oddly outside a deletion. */
+  cancelLabel?: string;
   busy: boolean;
   error?: ReactNode;
   onConfirm: () => void;
@@ -78,7 +81,7 @@ export default function ConfirmDialog({
             onClick={onCancel}
             disabled={busy}
           >
-            Keep it
+            {cancelLabel}
           </button>
           <button
             type="submit"

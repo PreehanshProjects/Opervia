@@ -14,9 +14,10 @@ public class MainActivity extends BridgeActivity {
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
-        // Opervia's own bridge to Android's PrintManager. Must be registered
-        // before super.onCreate() or the WebView will not see it.
+        // Opervia's own bridges. Must be registered before super.onCreate() or
+        // the WebView will not see them.
         registerPlugin(PrintPlugin.class);
+        registerPlugin(ShellPlugin.class);
         super.onCreate(savedInstanceState);
 
         // Android 15 (targetSdk 35) forces every app edge-to-edge, so the WebView
@@ -27,7 +28,17 @@ public class MainActivity extends BridgeActivity {
         // Insetting the content root instead keeps the whole WebView clear of the
         // system bars at every scroll position, on every Android version.
         final View content = findViewById(android.R.id.content);
-        content.setBackgroundColor(Color.parseColor("#F7F8F5")); // Paper
+        // A first paint before the WebView reports its theme. The system bar
+        // strip is repainted from JS as soon as the theme is known (ShellPlugin),
+        // so this only has to avoid a flash — it must never be the final word,
+        // or a dark app keeps a white band with unreadable white system icons.
+        final boolean darkNow =
+            (getResources().getConfiguration().uiMode &
+                android.content.res.Configuration.UI_MODE_NIGHT_MASK) ==
+            android.content.res.Configuration.UI_MODE_NIGHT_YES;
+        content.setBackgroundColor(
+            Color.parseColor(darkNow ? "#0e1a16" : "#f7f8f5")
+        );
         ViewCompat.setOnApplyWindowInsetsListener(
             content,
             (view, windowInsets) -> {

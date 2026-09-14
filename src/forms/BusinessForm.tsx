@@ -1,5 +1,12 @@
-import { useState, type FormEvent } from "react";
-import { Check, Image as ImageIcon, ShieldCheck, Trash2, Upload } from "lucide-react";
+import { useEffect, useState, type FormEvent } from "react";
+import {
+  AlertCircle,
+  Check,
+  Image as ImageIcon,
+  ShieldCheck,
+  Trash2,
+  Upload,
+} from "lucide-react";
 import { LOGO_HINT, readLogo } from "../lib/image";
 import ThemeSwitch from "../components/ThemeSwitch";
 import type { Theme } from "../lib/theme";
@@ -13,6 +20,7 @@ export default function BusinessForm({
   theme,
   onTheme,
   onSave,
+  onDirtyChange,
 }: {
   business: Business;
   busy: boolean;
@@ -21,9 +29,20 @@ export default function BusinessForm({
   theme: Theme;
   onTheme: (t: Theme) => void;
   onSave: (b: Business) => Promise<void>;
+  /** Reports unsaved edits so the shell can warn before navigating away. */
+  onDirtyChange?: (dirty: boolean) => void;
 }) {
   const [form, setForm] = useState(business);
   const [logoError, setLogoError] = useState("");
+  // Nothing here is stored until Save is pressed. The logo makes that easy to
+  // miss, because its preview appears the moment a file is chosen.
+  const dirty = JSON.stringify(form) !== JSON.stringify(business);
+  const logoChanged = form.logo !== business.logo;
+  // Let the shell warn before navigating away with unsaved edits.
+  useEffect(() => {
+    onDirtyChange?.(dirty);
+    return () => onDirtyChange?.(false);
+  }, [dirty]);
   return (
     <div className="settings-grid">
       <form
@@ -55,6 +74,12 @@ export default function BusinessForm({
             {logoError && (
               <p className="logo-error" role="alert">
                 {logoError}
+              </p>
+            )}
+            {logoChanged && !logoError && (
+              <p className="logo-pending" role="status">
+                <AlertCircle size={14} />
+                Preview only — press <b>Save details</b> to keep this logo.
               </p>
             )}
             <div className="button-row">
@@ -166,10 +191,22 @@ export default function BusinessForm({
             />
           </label>
         </div>
-        <button disabled={busy || !form.name.trim()} className="btn primary">
-          {busy ? "Saving…" : "Save details"}
-          <Check size={16} />
-        </button>
+        <div className={`save-bar ${dirty ? "unsaved" : ""}`}>
+          {dirty && (
+            <span className="save-note">
+              <AlertCircle size={15} />
+              Unsaved changes
+            </span>
+          )}
+          <button
+            type="submit"
+            disabled={busy || !form.name.trim() || !dirty}
+            className="btn primary"
+          >
+            {busy ? "Saving…" : dirty ? "Save details" : "Saved"}
+            <Check size={16} />
+          </button>
+        </div>
       </form>
       <div className="panel form-body appearance-card">
         <h3>Appearance</h3>
