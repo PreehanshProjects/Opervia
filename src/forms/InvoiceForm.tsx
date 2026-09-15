@@ -6,7 +6,11 @@ import {
 } from "react";
 import { ArrowRight, Plus, Trash2 } from "lucide-react";
 import NumberField from "../components/NumberField";
-import { clearRescuedDraft, readRescuedDraft, saveRescuedDraft } from "../lib/draft";
+import {
+  clearRescuedDraft,
+  readRescuedDraft,
+  saveRescuedDraft,
+} from "../lib/draft";
 import {
   lineTotal,
   money,
@@ -16,9 +20,25 @@ import {
   totals,
   validateInvoice,
   type Data,
+  type Invoice,
   type InvoiceInput,
   type Item,
 } from "../domain";
+
+/** An existing invoice, opened back up for correction. */
+const toInput = (invoice: Invoice): InvoiceInput => ({
+  id: invoice.id,
+  customer_id: invoice.customer_id,
+  date: invoice.date,
+  due_date: invoice.due_date,
+  items: invoice.items.map((i) => ({ ...i, section: i.section ?? "" })),
+  notes: invoice.notes,
+  tax_rate: invoice.tax_rate,
+  // An invoice can only be edited while nothing has been paid against it, so
+  // there is never an existing deposit to carry over.
+  deposit: 0,
+  method: "Cash",
+});
 
 export default function InvoiceForm({
   data,
@@ -28,6 +48,8 @@ export default function InvoiceForm({
   presetCustomer,
   onPresetConsumed,
   template,
+  invoice,
+  onCancel,
 }: {
   data: Data;
   busy: boolean;
@@ -36,11 +58,19 @@ export default function InvoiceForm({
   presetCustomer: string;
   onPresetConsumed: () => void;
   template: InvoiceInput | null;
+  /** Set to reopen an existing invoice for correction rather than create a new one. */
+  invoice?: Invoice;
+  /** Only shown while editing: the way back to the invoice without saving. */
+  onCancel?: () => void;
 }) {
-  // An explicit "Invoice again" outranks a rescued draft.
-  const rescued = useRef(template ?? readRescuedDraft()).current;
+  const editing = !!invoice;
+  // An invoice being corrected outranks everything; then an explicit
+  // "Invoice again"; then a draft rescued from an interrupted session.
+  const opened = useRef(
+    invoice ? toInput(invoice) : (template ?? readRescuedDraft()),
+  ).current;
   const [input, setInput] = useState<InvoiceInput>(
-    rescued ?? {
+    opened ?? {
       id: crypto.randomUUID(),
       customer_id: "",
       date: today(),
@@ -54,11 +84,11 @@ export default function InvoiceForm({
       method: "Cash",
     },
   );
-  const [restored, setRestored] = useState(!!rescued && !template);
+  const [restored, setRestored] = useState(!!opened && !template && !editing);
   const copied = !!template;
   const [customerQuery, setCustomerQuery] = useState(
     () =>
-      data.customers.find((c) => c.id === (rescued?.customer_id ?? ""))?.name ??
+      data.customers.find((c) => c.id === (opened?.customer_id ?? ""))?.name ??
       "",
   );
   const [error, setError] = useState("");
@@ -74,12 +104,14 @@ export default function InvoiceForm({
     onPresetConsumed();
   }, [presetCustomer]);
   // Keep a rescue copy once there is real work to lose, so an expired session
-  // or an accidental reload does not take the invoice with it.
+  // or an accidental reload does not take the invoice with it. An edit is never
+  // rescued: the invoice is already saved, and writing it to the draft slot
+  // would bury a half-typed new invoice waiting there.
   const dirty =
     !!input.customer_id || input.items.some((i) => i.description.trim());
   useEffect(() => {
-    if (dirty) saveRescuedDraft(input);
-  }, [input, dirty]);
+    if (dirty && !editing) saveRescuedDraft(input);
+  }, [input, dirty, editing]);
   // What this business has billed before, most recent first. Typing a
   // description that matches brings back its unit and price.
   const priorItems = (() => {
@@ -160,7 +192,7 @@ export default function InvoiceForm({
         setError("");
         try {
           validateInvoice(input);
-          if (await onSave(input)) clearRescuedDraft();
+          if ((await onSave(input)) && !editing) clearRescuedDraft();
         } catch (e) {
           setError(
             e instanceof Error ? e.message : "Check the invoice details.",
@@ -168,6 +200,18 @@ export default function InvoiceForm({
         }
       }}
     >
+      {editing && (
+        <div className="setup-note" role="status">
+          <div>
+            <b>Correcting {invoice.number}.</b>
+            <p>
+              It keeps its number and its place in the ledger. Nothing has been
+              paid against it yet, which is the only reason it can still be
+              changed.
+            </p>
+          </div>
+        </div>
+      )}
       {copied && (
         <div className="setup-note" role="status">
           <div>
@@ -184,8 +228,8 @@ export default function InvoiceForm({
           <div>
             <b>We kept what you had typed.</b>
             <p>
-              This invoice was still open when your last session ended. Check the
-              details before saving.
+              This invoice was still open when your last session ended. Check
+              the details before saving.
             </p>
           </div>
           <button
@@ -362,9 +406,9 @@ export default function InvoiceForm({
               </select>
             </label>
             <label>
-              Unit price
+              Price / {item.unit}
               <NumberField
-                aria-label={`Item ${i + 1} price`}
+                aria-label={`Item ${i + 1} price per ${item.unit}`}
                 min="0"
                 max="100000000"
                 step="0.01"
@@ -488,17 +532,36 @@ export default function InvoiceForm({
       )}
       <div className="form-footer">
         <p>
-          Creating an invoice posts it to the ledger. Check your details before
-          saving.
+          {editing
+            ? "Saving replaces what is on the ledger for this invoice. Reprint it afterwards if it has already been sent."
+            : "Creating an invoice posts it to the ledger. Check your details before saving."}
         </p>
-        <button
-          type="submit"
-          className="btn primary"
-          disabled={busy || !data.customers.length}
-        >
-          {busy ? "Creating…" : "Create invoice"}
-          <ArrowRight size={17} />
-        </button>
+        <div className="button-row">
+          {editing && onCancel && (
+            <button
+              type="button"
+              className="btn secondary"
+              onClick={onCancel}
+              disabled={busy}
+            >
+              Cancel
+            </button>
+          )}
+          <button
+            type="submit"
+            className="btn primary"
+            disabled={busy || !data.customers.length}
+          >
+            {busy
+              ? editing
+                ? "Saving…"
+                : "Creating…"
+              : editing
+                ? "Save changes"
+                : "Create invoice"}
+            <ArrowRight size={17} />
+          </button>
+        </div>
       </div>
     </form>
   );

@@ -78,10 +78,11 @@ export default function Expenses({
           className="btn secondary"
           onClick={() =>
             onExport("opervia-expenses.csv", [
-              ["Date", "Description", "Category", "Amount MUR"],
+              ["Date", "Description", "Details", "Category", "Amount MUR"],
               ...rows.map((e) => [
                 e.date,
                 e.description,
+                e.note ?? "",
                 e.category,
                 e.amount,
               ]),
@@ -139,6 +140,9 @@ export default function Expenses({
                     >
                       {e.description}
                     </button>
+                    {/* The optional second line, kept quiet and clipped: it is
+                        context while scanning, not a column of its own. */}
+                    {e.note && <small className="row-note">{e.note}</small>}
                   </td>
                   <td>
                     <span className="badge neutral">{e.category}</span>

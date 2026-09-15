@@ -7,6 +7,7 @@ import type {
   Data,
   Expense,
   ExpenseQuery,
+  Invoice,
   InvoiceInput,
   InvoiceRow,
   InvoiceQuery,
@@ -60,7 +61,7 @@ export async function loadReference(): Promise<Data> {
     ["business_profiles", "customers", "opening_balances"].map(
       async (table) => {
         const rows: Record<string, unknown>[] = [];
-        for (let offset = 0; offset < 20000; ) {
+        for (let offset = 0; offset < 20000;) {
           const { data, error } = await supabase!
             .from(table)
             .select("*")
@@ -111,9 +112,7 @@ export const listExpenses = (q: ExpenseQuery) =>
 export const listLedger = (q: LedgerQuery) =>
   query<Page<LedgerRow> & { closing: number }>("list_ledger", q);
 /** Outstanding per customer, so the customer cards do not need every invoice. */
-export async function loadCustomerBalances(): Promise<
-  Record<string, number>
-> {
+export async function loadCustomerBalances(): Promise<Record<string, number>> {
   const { data, error } = await supabase!.rpc("customer_balances");
   check(error);
   return (data ?? {}) as Record<string, number>;
@@ -158,6 +157,44 @@ export async function deleteCustomer(id: string) {
 }
 export async function createInvoice(input: InvoiceInput) {
   const { error } = await supabase!.rpc("create_invoice", { payload: input });
+  check(error);
+}
+/**
+ * One invoice by id, for the moment just after it was written.
+ *
+ * loadReference deliberately returns no invoices — transactions are paged per
+ * view — so a freshly created or corrected invoice cannot be found there, and
+ * the page query may not hold it either (it sorts by date, and the caller may be
+ * on page four). Reading the single row back is the only way to put the saved
+ * document on screen.
+ */
+export async function getInvoice(id: string): Promise<Invoice | null> {
+  const { data, error } = await supabase!
+    .from("invoices")
+    .select("*")
+    .eq("id", id)
+    .maybeSingle();
+  check(error);
+  return (data as Invoice) ?? null;
+}
+/**
+ * Corrects an invoice in place, keeping its number. The server refuses once a
+ * payment exists against it, so this is only ever reachable for an invoice that
+ * has settled nothing yet.
+ */
+export async function updateInvoice(input: InvoiceInput) {
+  const { error } = await supabase!.rpc("update_invoice", { payload: input });
+  check(error);
+}
+/**
+ * Removes an invoice from the record. Reachable only when no payment exists
+ * against it — which covers an unpaid invoice and every voided one. The number
+ * is not reused, so the gap it leaves is the trace.
+ */
+export async function deleteInvoice(id: string) {
+  const { error } = await supabase!.rpc("delete_invoice", {
+    invoice_uuid: id,
+  });
   check(error);
 }
 export async function recordPayment(payment: Payment) {

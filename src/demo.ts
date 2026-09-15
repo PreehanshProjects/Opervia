@@ -133,6 +133,7 @@ export function makeDemo(): Data {
         id: "demo-exp-1",
         date: plusDays(today(), -3),
         description: "Delivery fuel",
+        note: "Morning run to Tamarin and Flic en Flac. Receipt in the folder.",
         category: "Transport",
         amount: 650,
       },

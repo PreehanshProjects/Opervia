@@ -67,7 +67,10 @@ export type OpeningBalance = {
 export type Expense = {
   id: string;
   date: string;
+  /** The one line that labels this expense everywhere. Required. */
   description: string;
+  /** Anything worth remembering about it in six months. Optional, owner's eyes only. */
+  note: string;
   category: string;
   amount: number;
 };
@@ -155,6 +158,20 @@ export function status(invoice: Invoice, payments: Payment[]) {
   if (paid(invoice, payments) > 0) return "Partial";
   return "Unpaid";
 }
+/**
+ * An invoice is only fixed once money has moved against it. Until then nothing
+ * has been settled, so the owner may correct the document — the same sheet,
+ * rewritten, keeping its number. A voided invoice is closed and stays closed.
+ */
+export const canEditInvoice = (invoice: Invoice, payments: Payment[]) =>
+  !invoice.voided && paid(invoice, payments) === 0;
+/**
+ * Removing an invoice altogether. Allowed on the same condition — no payments —
+ * which covers one just created in error and every voided one, since voiding
+ * already requires that nothing was paid. The number is never reused.
+ */
+export const canDeleteInvoice = (invoice: Invoice, payments: Payment[]) =>
+  paid(invoice, payments) === 0;
 /**
  * A customer who has been invoiced is part of the financial record and cannot be
  * removed — the same principle that lets an invoice be voided but never deleted.
@@ -343,9 +360,7 @@ export function csvCell(value: unknown) {
  * The BOM keeps Excel honest about UTF-8.
  */
 export function toCsv(rows: unknown[][]) {
-  return (
-    "\uFEFF" + rows.map((r) => r.map(csvCell).join(",")).join("\r\n")
-  );
+  return "\uFEFF" + rows.map((r) => r.map(csvCell).join(",")).join("\r\n");
 }
 export const CSV_MIME = "text/csv;charset=utf-8";
 
@@ -403,7 +418,9 @@ export function queryInvoices(
   const matching = data.invoices
     .filter(
       (i) =>
-        (!q.status || q.status === "All" || status(i, data.payments) === q.status) &&
+        (!q.status ||
+          q.status === "All" ||
+          status(i, data.payments) === q.status) &&
         (!q.customer_id || i.customer_id === q.customer_id) &&
         inRange(i.date, q.from, q.to) &&
         (!needle ||
@@ -434,7 +451,8 @@ export function queryExpenses(
       (e) =>
         (!q.category || q.category === "All" || e.category === q.category) &&
         inRange(e.date, q.from, q.to) &&
-        (!needle || e.description.toLowerCase().includes(needle)),
+        (!needle ||
+          `${e.description} ${e.note ?? ""}`.toLowerCase().includes(needle)),
     )
     .sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id));
   return {
@@ -478,14 +496,20 @@ export function summarise(data: Data) {
   const overdue = unpaid.filter((i) => i.due_date < today());
   return {
     invoiceOutstanding: roundMoney(
-      unpaid.reduce((s, i) => s.plus(balance(i, data.payments)), new Decimal(0)),
+      unpaid.reduce(
+        (s, i) => s.plus(balance(i, data.payments)),
+        new Decimal(0),
+      ),
     ),
     openingOutstanding: totalOpeningOutstanding(data),
     unpaidCount: unpaid.length,
     invoiceCount: live.length,
     overdueCount: overdue.length,
     overdueAmount: roundMoney(
-      overdue.reduce((s, i) => s.plus(balance(i, data.payments)), new Decimal(0)),
+      overdue.reduce(
+        (s, i) => s.plus(balance(i, data.payments)),
+        new Decimal(0),
+      ),
     ),
     received: roundMoney(
       data.payments.reduce((s, p) => s.plus(p.amount), new Decimal(0)),

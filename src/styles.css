@@ -31,6 +31,8 @@
   --ink-strong: #33513f;
   --ink-muted: #5f6a59;
   --ink-soft: #6d7763;
+  /* Hint text only. Legible, and unmistakably not a value. */
+  --ink-placeholder: #7f8b7c;
 
   /* Lines */
   --border: #e5e9e2;
@@ -38,17 +40,28 @@
   --border-strong: #dce2d9;
 
   /* Status */
-  --status-paid: #507847;        --status-paid-bg: #edf4e5;
-  --status-partial: #7d672c;     --status-partial-bg: #faf3dd;
-  --status-overdue: #a35b45;     --status-overdue-bg: #fcf0e9;
-  --status-unpaid: #61717f;      --status-unpaid-bg: #eff3f6;
-  --status-void: #726868;        --status-void-bg: #eeeaea;
+  --status-paid: #507847;
+  --status-paid-bg: #edf4e5;
+  --status-partial: #7d672c;
+  --status-partial-bg: #faf3dd;
+  --status-overdue: #a35b45;
+  --status-overdue-bg: #fcf0e9;
+  --status-unpaid: #61717f;
+  --status-unpaid-bg: #eff3f6;
+  --status-void: #726868;
+  --status-void-bg: #eeeaea;
 
   /* Feedback */
-  --error: #a44832;    --error-bg: #fff0ed;    --error-border: #f2c9be;
-  --success: #54783f;  --success-bg: #edf5e6;
-  --demo: #7a6b44;     --demo-bg: #f4eedc;
-  --danger-ink: #a1493a; --danger-bg: #fff4f1; --danger-border: #f1d7d1;
+  --error: #a44832;
+  --error-bg: #fff0ed;
+  --error-border: #f2c9be;
+  --success: #54783f;
+  --success-bg: #edf5e6;
+  --demo: #7a6b44;
+  --demo-bg: #f4eedc;
+  --danger-ink: #a1493a;
+  --danger-bg: #fff4f1;
+  --danger-border: #f1d7d1;
 
   /* Depth. Green-black with alpha, never neutral. */
   --shadow-button: 0 3px 4px #173f3510;
@@ -94,21 +107,33 @@
   --ink-strong: #d3decd;
   --ink-muted: #a2b09c;
   --ink-soft: #8b998a;
+  --ink-placeholder: #7e8d7c;
 
   --border: #22362e;
   --border-soft: #1b2d26;
   --border-strong: #2e463b;
 
-  --status-paid: #9fce8e;        --status-paid-bg: #1c3122;
-  --status-partial: #e0c37a;     --status-partial-bg: #322a15;
-  --status-overdue: #e8a086;     --status-overdue-bg: #35211a;
-  --status-unpaid: #a9bccd;      --status-unpaid-bg: #1d2833;
-  --status-void: #b3a8a8;        --status-void-bg: #2a2424;
+  --status-paid: #9fce8e;
+  --status-paid-bg: #1c3122;
+  --status-partial: #e0c37a;
+  --status-partial-bg: #322a15;
+  --status-overdue: #e8a086;
+  --status-overdue-bg: #35211a;
+  --status-unpaid: #a9bccd;
+  --status-unpaid-bg: #1d2833;
+  --status-void: #b3a8a8;
+  --status-void-bg: #2a2424;
 
-  --error: #f0a693;   --error-bg: #37201b;   --error-border: #5c322a;
-  --success: #a6d18c; --success-bg: #1b2f1b;
-  --demo: #e2c98e;    --demo-bg: #302819;
-  --danger-ink: #f0a693; --danger-bg: #341f1a; --danger-border: #55302a;
+  --error: #f0a693;
+  --error-bg: #37201b;
+  --error-border: #5c322a;
+  --success: #a6d18c;
+  --success-bg: #1b2f1b;
+  --demo: #e2c98e;
+  --demo-bg: #302819;
+  --danger-ink: #f0a693;
+  --danger-bg: #341f1a;
+  --danger-border: #55302a;
 
   --shadow-button: 0 3px 4px #00000040;
   --shadow-card: 0 4px 16px #00000033;
@@ -212,9 +237,14 @@ textarea:focus {
   outline: 2px solid var(--focus);
   outline-offset: 1px;
 }
+/* A placeholder has to read as a suggestion, never as a value already entered.
+   --ink-strong is barely a shade off --ink, which made a prefilled-looking field
+   out of every hint — worst of all in the delete dialog, where the placeholder
+   is the very name the owner is being asked to type. */
 input::placeholder,
 textarea::placeholder {
-  color: var(--ink-strong);
+  color: var(--ink-placeholder);
+  opacity: 1; /* Firefox dims placeholders again on top of the colour. */
 }
 textarea {
   resize: vertical;
@@ -708,6 +738,19 @@ nav button.active svg {
 }
 .table-link:hover {
   text-decoration: underline;
+}
+/* An optional second line under a row's label. One line, then an ellipsis: the
+   full text belongs in the record, not in the scan. */
+.row-note {
+  display: block;
+  margin-top: -8px;
+  padding-bottom: 4px;
+  font-size: 11px;
+  color: var(--ink-soft);
+  max-width: 320px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .number {
   font-variant-numeric: tabular-nums;
@@ -2370,8 +2413,13 @@ nav button.active svg {
   }
 }
 @media print {
-  .blank-paper .paper-header {padding-bottom:18px;}
-  .blank-paper .paper-customer {padding-top:20px;padding-bottom:20px;}
+  .blank-paper .paper-header {
+    padding-bottom: 18px;
+  }
+  .blank-paper .paper-customer {
+    padding-top: 20px;
+    padding-bottom: 20px;
+  }
   .blank-paper .paper-table td {
     padding-top: 8px;
     padding-bottom: 8px;
@@ -2561,7 +2609,6 @@ nav button.active svg {
 }
 
 /* --- Mobile bottom navigation --- */
-
 
 .bottom-nav {
   position: fixed;
@@ -2875,7 +2922,11 @@ nav button.active svg {
     linear-gradient(45deg, transparent 75%, #f1f3ec 75%),
     linear-gradient(-45deg, transparent 75%, #f1f3ec 75%);
   background-size: 12px 12px;
-  background-position: 0 0, 0 6px, 6px -6px, -6px 0;
+  background-position:
+    0 0,
+    0 6px,
+    6px -6px,
+    -6px 0;
   color: var(--ink-soft);
   overflow: hidden;
 }
@@ -3188,5 +3239,107 @@ nav button.active svg {
   }
   .save-bar .btn {
     flex: 1;
+  }
+}
+
+/* --- The black-and-white sheet --- */
+
+/* Same document, no identity colour. A mono laser turns the brand green into an
+   indistinct grey and the tinted table head into a muddy band, so this sheet
+   trades the greens for black text and grey rules that survive the conversion.
+   It is deliberately still not pure black on everything: the secondary lines
+   need to stay secondary, and grey is how paper says that. These rules sit last
+   in the file and out-specify the coloured ones, so they hold on screen and in
+   print alike. */
+.mono-paper {
+  color: #000;
+}
+.mono-paper .paper-header {
+  border-bottom-color: #000;
+}
+.mono-paper .paper-eyebrow,
+.mono-paper .paper-header p,
+.mono-paper .paper-customer p,
+.mono-paper .paper-table small,
+.mono-paper .paper-bottom > div:first-child p,
+.mono-paper .paper-signatures,
+.mono-paper .paper-footer {
+  color: #444;
+}
+/* The tinted head becomes a rule. A band of grey costs toner and reads worse. */
+.mono-paper .paper-table th {
+  background: #fff;
+  color: #000;
+  border-bottom: 1.5px solid #000;
+}
+.mono-paper .paper-table th:not(:last-child),
+.mono-paper .paper-table td:not(:last-child) {
+  border-right-color: #bbb;
+}
+.mono-paper .paper-table td {
+  border-bottom-color: #d4d4d4;
+}
+.mono-paper .paper-grand {
+  color: #000;
+  border-top-color: #000;
+  border-bottom-color: #000;
+}
+.mono-paper .paper-signatures span {
+  border-top-color: #555;
+}
+.mono-paper .paper-footer {
+  border-top-color: #c8c8c8;
+}
+/* A colour logo would be the one thing left shouting on an otherwise grey page. */
+.mono-paper .paper-logo {
+  filter: grayscale(1) contrast(1.08);
+}
+/* The hand-fill grid, which the print rules draw in a pale green. */
+.mono-paper.blank-paper .paper-table td,
+.mono-paper.blank-paper .paper-table td:first-child {
+  border-right-color: #c4c4c4;
+  border-left-color: #c4c4c4;
+}
+
+/* The toolbar's ink toggle reads as pressed rather than as a separate mode. */
+.btn.toggle[aria-pressed="true"] {
+  background: var(--tint-strong);
+  border-color: var(--border-strong);
+  color: var(--ink);
+}
+
+/* --- Printing out of the dark theme --- */
+
+/* The Android print path snapshots the live WebView, so whatever the app is
+   wearing is what lands in the PDF. On a phone set to dark mode that used to
+   mean a black page with the invoice inset into it: the rules above whitened
+   html/body but left `color-scheme: dark`, which is what paints the canvas and
+   the @page margin band, and left .modal on its dark --surface. An invoice is a
+   document, not a screen — it is always the light sheet. These rules come after
+   the main print block so they settle it last. */
+@media print {
+  :root,
+  :root[data-theme="dark"] {
+    color-scheme: light;
+  }
+  html,
+  body,
+  #root,
+  .app-shell,
+  .modal-backdrop,
+  .modal,
+  .modal-body,
+  .print-area,
+  .invoice-paper {
+    background: #fff !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  /* The paper sets its own ink; the dark theme's --ink must not reach it. */
+  .invoice-paper {
+    color: #29362d;
+  }
+  .mono-paper {
+    color: #000;
   }
 }

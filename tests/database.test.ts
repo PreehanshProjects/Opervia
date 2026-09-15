@@ -47,6 +47,8 @@ beforeAll(async () => {
     "202609140002_opening_balances.sql",
     "202609140003_business_logo.sql",
     "202609140004_server_queries.sql",
+    "202609160001_edit_and_delete_invoices.sql",
+    "202609160002_expense_details_and_grants.sql",
   ])
     await db.exec(
       readFileSync(
@@ -517,7 +519,13 @@ describe("server-side queries", () => {
         date: `2026-03-${String(n).padStart(2, "0")}`,
         due_date: `2026-04-${String(n).padStart(2, "0")}`,
         items: [
-          { description: `Item ${n}`, quantity: 1, price: 100, unit: "pc", section: "" },
+          {
+            description: `Item ${n}`,
+            quantity: 1,
+            price: 100,
+            unit: "pc",
+            section: "",
+          },
         ],
         notes: "",
         tax_rate: 0,
@@ -567,7 +575,9 @@ describe("server-side queries", () => {
     expect(ranged.total).toBe(3);
     const searched = await call("list_invoices", { search: "Query Customer" });
     expect(searched.total).toBe(12);
-    expect((await call("list_invoices", { search: "no-such-thing" })).total).toBe(0);
+    expect(
+      (await call("list_invoices", { search: "no-such-thing" })).total,
+    ).toBe(0);
   });
 
   it("carries the ledger running balance across page boundaries", async () => {
@@ -608,5 +618,209 @@ describe("server-side queries", () => {
     expect((await call("list_invoices", { customer_id: qCust })).total).toBe(0);
     expect((await call("list_ledger", { customer_id: qCust })).total).toBe(0);
     expect((await call("list_expenses")).total).toBe(0);
+  });
+});
+
+describe.sequential("correcting and removing invoices", () => {
+  // Own fixtures throughout: these tests delete rows, and the suites above
+  // count what is on the table.
+  const cust = "10000000-0000-4000-8000-00000000000e";
+  const editable = "20000000-0000-4000-8000-00000000000e";
+  const settled = "20000000-0000-4000-8000-00000000000f";
+  const draft = (id: string) => ({
+    id,
+    customer_id: cust,
+    date: "2026-01-01",
+    due_date: "2026-01-31",
+    items: [
+      {
+        description: "Lettuce",
+        quantity: 2,
+        price: 100,
+        unit: "pc",
+        section: "",
+      },
+    ],
+    notes: "",
+    tax_rate: 0,
+    deposit: 0,
+    method: "Cash",
+  });
+  beforeAll(async () => {
+    await asUser(userA);
+    await db.query(
+      "insert into public.customers(id,owner_id,name) values($1,$2,$3)",
+      [cust, userA, "Edit Test Ltd"],
+    );
+    await rpc("create_invoice", draft(editable));
+    await rpc("create_invoice", { ...draft(settled), deposit: 50 });
+  });
+
+  it("rewrites an unpaid invoice without changing its number", async () => {
+    const before = (
+      await db.query<{ number: string }>(
+        "select number from public.invoices where id=$1",
+        [editable],
+      )
+    ).rows[0].number;
+    await rpc("update_invoice", {
+      ...draft(editable),
+      items: [
+        {
+          description: "Tomatoes",
+          quantity: 3,
+          price: 40,
+          unit: "kg",
+          section: "",
+        },
+      ],
+      tax_rate: 15,
+      notes: "Corrected",
+    });
+    const { rows } = await db.query<{
+      number: string;
+      subtotal: string;
+      tax: string;
+      total: string;
+      notes: string;
+    }>("select * from public.invoices where id=$1", [editable]);
+    expect(rows[0].number).toBe(before);
+    expect(Number(rows[0].subtotal)).toBe(120);
+    expect(Number(rows[0].tax)).toBe(18);
+    expect(Number(rows[0].total)).toBe(138);
+    expect(rows[0].notes).toBe("Corrected");
+  });
+
+  it("keeps the logo out of the refreshed snapshot", async () => {
+    await db.query(
+      "update public.business_profiles set details = details || $2::jsonb where owner_id=$1",
+      [userA, JSON.stringify({ logo: "data:image/png;base64,AAAA" })],
+    );
+    await rpc("update_invoice", draft(editable));
+    const { rows } = await db.query<{ has: boolean }>(
+      "select business ? 'logo' as has from public.invoices where id=$1",
+      [editable],
+    );
+    expect(rows[0].has).toBe(false);
+  });
+
+  it("refuses to edit or delete an invoice once money has moved", async () => {
+    await expect(rpc("update_invoice", draft(settled))).rejects.toThrow(
+      "cannot be edited",
+    );
+    await expect(
+      db.query("select public.delete_invoice($1)", [settled]),
+    ).rejects.toThrow("cannot be deleted");
+  });
+
+  it("refuses to edit a voided invoice, but allows deleting one", async () => {
+    const voided = "20000000-0000-4000-8000-00000000001a";
+    await rpc("create_invoice", draft(voided));
+    await db.query("select public.void_invoice($1)", [voided]);
+    await expect(rpc("update_invoice", draft(voided))).rejects.toThrow(
+      "voided invoice cannot be edited",
+    );
+    await db.query("select public.delete_invoice($1)", [voided]);
+    expect(
+      (await db.query("select 1 from public.invoices where id=$1", [voided]))
+        .rows,
+    ).toHaveLength(0);
+  });
+
+  it("applies the same validation as creating", async () => {
+    await expect(
+      rpc("update_invoice", { ...draft(editable), tax_rate: 150 }),
+    ).rejects.toThrow("Invalid tax rate");
+    await expect(
+      rpc("update_invoice", { ...draft(editable), due_date: "2025-12-01" }),
+    ).rejects.toThrow("Invalid invoice dates");
+    await expect(
+      rpc("update_invoice", { ...draft(editable), items: [] }),
+    ).rejects.toThrow("between 1 and 100");
+  });
+
+  it("will not let one account edit or delete another's invoice", async () => {
+    await asUser(userB);
+    await expect(rpc("update_invoice", draft(editable))).rejects.toThrow(
+      "Invoice not found",
+    );
+    await expect(
+      db.query("select public.delete_invoice($1)", [editable]),
+    ).rejects.toThrow("Invoice not found");
+  });
+
+  it("removes an unpaid invoice outright, leaving a gap in the numbering", async () => {
+    await asUser(userA);
+    await db.query("select public.delete_invoice($1)", [editable]);
+    expect(
+      (await db.query("select 1 from public.invoices where id=$1", [editable]))
+        .rows,
+    ).toHaveLength(0);
+    // The sequence never rewinds, so the next invoice does not reuse the number.
+    const next = "20000000-0000-4000-8000-00000000001b";
+    await rpc("create_invoice", draft(next));
+    const numbers = (
+      await db.query<{ number: string }>(
+        "select number from public.invoices where id in ($1,$2)",
+        [settled, next],
+      )
+    ).rows.map((r) => Number(r.number.replace("OP-", "")));
+    expect(Math.max(...numbers) - Math.min(...numbers)).toBeGreaterThan(1);
+  });
+});
+
+describe.sequential("expenses: the grants the app always needed", () => {
+  it("records an expense through an upsert, which needs UPDATE as well as INSERT", async () => {
+    await asUser(userA);
+    const id = "40000000-0000-4000-8000-00000000000a";
+    // This is the shape PostgREST sends for .upsert(): the path that used to
+    // fail with "permission denied" on a brand-new row.
+    const upsert = (amount: number, note: string) =>
+      db.query(
+        `insert into public.expenses(id,owner_id,date,description,note,category,amount)
+         values($1,$2,'2026-01-05','Delivery fuel',$3,'Transport',$4)
+         on conflict (id) do update set amount=excluded.amount, note=excluded.note`,
+        [id, userA, note, amount],
+      );
+    await upsert(650, "Vacoas run");
+    await upsert(777, "Vacoas run, receipt 4417");
+    const { rows } = await db.query<{ amount: string; note: string }>(
+      "select amount, note from public.expenses where id=$1",
+      [id],
+    );
+    expect(Number(rows[0].amount)).toBe(777);
+    expect(rows[0].note).toBe("Vacoas run, receipt 4417");
+    // And the optional line is searchable alongside the description.
+    const { rows: found } = await db.query<{ out: { total: number } }>(
+      "select public.list_expenses($1::jsonb) as out",
+      [JSON.stringify({ search: "4417" })],
+    );
+    expect(found[0].out.total).toBe(1);
+    await db.query("delete from public.expenses where id=$1", [id]);
+  });
+
+  it("lets an owner delete their own customer, and no one else's", async () => {
+    const spare = "10000000-0000-4000-8000-00000000000d";
+    await db.query(
+      "insert into public.customers(id,owner_id,name) values($1,$2,$3)",
+      [spare, userA, "Temporary Trader"],
+    );
+    await asUser(userB);
+    expect(
+      (await db.query("delete from public.customers where id=$1", [spare]))
+        .affectedRows,
+    ).toBe(0);
+    await asUser(userA);
+    await db.query("delete from public.customers where id=$1", [spare]);
+    expect(
+      (await db.query("select 1 from public.customers where id=$1", [spare]))
+        .rows,
+    ).toHaveLength(0);
+  });
+
+  it("still refuses to delete a customer who has invoices", async () => {
+    await expect(
+      db.query("delete from public.customers where id=$1", [customerA]),
+    ).rejects.toThrow(/foreign key/);
   });
 });

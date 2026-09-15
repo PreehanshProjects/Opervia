@@ -1,10 +1,14 @@
 package io.novity.opervia;
 
+import android.os.Handler;
+import android.os.Looper;
 import android.print.PrintAttributes;
 import android.print.PrintDocumentAdapter;
+import android.print.PrintJob;
 import android.print.PrintManager;
 import android.webkit.WebView;
 
+import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
@@ -21,9 +25,19 @@ import com.getcapacitor.annotation.CapacitorPlugin;
  * covers both printing and sending a PDF to a customer. The page already
  * carries @media print rules and @page { size: A4 }, so the output matches the
  * browser's exactly.
+ *
+ * The call does not resolve when the sheet opens; it resolves when the job it
+ * created settles. Without that the app can only say "we opened a dialog",
+ * which is not something worth telling anyone — whereas "saved" is, and it has
+ * to be true.
  */
 @CapacitorPlugin(name = "NativePrint")
 public class PrintPlugin extends Plugin {
+
+    /** How often the spooler is asked where the job got to. */
+    private static final long POLL_MS = 400;
+    /** Give up after two minutes rather than poll behind a forgotten dialog. */
+    private static final int MAX_POLLS = 300;
 
     @PluginMethod
     public void print(PluginCall call) {
@@ -50,11 +64,47 @@ public class PrintPlugin extends Plugin {
                         .setMinMargins(PrintAttributes.Margins.NO_MARGINS)
                         .build();
 
-                    printManager.print(name, adapter, attributes);
-                    call.resolve();
+                    PrintJob job = printManager.print(name, adapter, attributes);
+                    watch(call, job, 0);
                 } catch (Exception e) {
                     call.reject("Could not open the print dialog.", e);
                 }
             });
+    }
+
+    /**
+     * Follows one print job to its end. The spooler exposes no completion
+     * callback, so the state is polled — cheaply, and only while a job the user
+     * started is still open.
+     */
+    private void watch(PluginCall call, PrintJob job, int polls) {
+        if (job == null) {
+            settle(call, "unknown");
+            return;
+        }
+        if (job.isCompleted()) {
+            settle(call, "completed");
+            return;
+        }
+        if (job.isCancelled()) {
+            settle(call, "cancelled");
+            return;
+        }
+        if (job.isFailed() || job.isBlocked()) {
+            settle(call, "failed");
+            return;
+        }
+        if (polls >= MAX_POLLS) {
+            settle(call, "unknown");
+            return;
+        }
+        new Handler(Looper.getMainLooper())
+            .postDelayed(() -> watch(call, job, polls + 1), POLL_MS);
+    }
+
+    private void settle(PluginCall call, String status) {
+        JSObject result = new JSObject();
+        result.put("status", status);
+        call.resolve(result);
     }
 }

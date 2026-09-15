@@ -13,11 +13,19 @@ export default function InvoicePrint({
   business,
   payments,
   blank = false,
+  mono = false,
 }: {
   invoice?: Invoice;
   business: Business;
   payments: Payment[];
   blank?: boolean;
+  /**
+   * Ink-saving mode: the green identity drops out and the sheet is set in black
+   * and grey only. A mono laser renders the tinted table head as a muddy band
+   * and the brand green as an indistinct grey, so on those printers this is the
+   * sheet that actually reads. It is a rendering choice, never a data one.
+   */
+  mono?: boolean;
 }) {
   const b = invoice?.business ?? business;
   // Text details come from the invoice's own snapshot so history stays intact.
@@ -25,7 +33,11 @@ export default function InvoicePrint({
   // image is never copied into every invoice row in the database.
   const logo = business.logo;
   return (
-    <article className={`invoice-paper ${blank ? "blank-paper" : ""}`}>
+    <article
+      className={`invoice-paper ${blank ? "blank-paper" : ""} ${
+        mono ? "mono-paper" : ""
+      }`}
+    >
       <header className="paper-header">
         <div className="paper-identity">
           {logo && <img className="paper-logo" src={logo} alt="" />}

@@ -127,7 +127,9 @@ test("search, blank invoice, void and demo reset", async ({
   await page.goto("/");
   await page.getByRole("button", { name: "Explore the demo" }).click();
   await page
-    .locator(testInfo.project.name === "mobile" ? ".bottom-nav" : ".sidebar nav")
+    .locator(
+      testInfo.project.name === "mobile" ? ".bottom-nav" : ".sidebar nav",
+    )
     .getByRole("button", { name: /Invoices/ })
     .click();
   await page.getByLabel("Search invoices").fill("nothing-matches");
@@ -225,7 +227,10 @@ test("the theme can be switched and survives a reload", async ({
   if (testInfo.project.name === "mobile")
     await page.getByRole("button", { name: "Settings" }).click();
   else
-    await page.locator(".sidebar nav").getByRole("button", { name: /Settings/ }).click();
+    await page
+      .locator(".sidebar nav")
+      .getByRole("button", { name: /Settings/ })
+      .click();
 
   await page
     .locator(".appearance-card")
@@ -235,9 +240,15 @@ test("the theme can be switched and survives a reload", async ({
 
   // The invoice sheet is a document: it stays on white paper in every theme.
   if (testInfo.project.name === "mobile")
-    await page.locator(".bottom-nav").getByRole("button", { name: /Overview/ }).click();
+    await page
+      .locator(".bottom-nav")
+      .getByRole("button", { name: /Overview/ })
+      .click();
   else
-    await page.locator(".sidebar nav").getByRole("button", { name: /Overview/ }).click();
+    await page
+      .locator(".sidebar nav")
+      .getByRole("button", { name: /Overview/ })
+      .click();
   await page.getByRole("button", { name: "Blank invoice" }).click();
   const paper = await page.evaluate(() => {
     const el = document.querySelector(".invoice-paper");
@@ -286,9 +297,15 @@ test("a business logo can be uploaded and reaches the invoice", async ({
 
   await page.getByRole("button", { name: "Save details" }).click();
   if (testInfo.project.name === "mobile")
-    await page.locator(".bottom-nav").getByRole("button", { name: /Overview/ }).click();
+    await page
+      .locator(".bottom-nav")
+      .getByRole("button", { name: /Overview/ })
+      .click();
   else
-    await page.locator(".sidebar nav").getByRole("button", { name: /Overview/ }).click();
+    await page
+      .locator(".sidebar nav")
+      .getByRole("button", { name: /Overview/ })
+      .click();
 
   await page.getByRole("button", { name: "Blank invoice" }).click();
   await expect(page.locator(".paper-logo")).toBeVisible();
@@ -320,9 +337,18 @@ test("an expense can be corrected or removed, and every action confirms", async 
   const dialog = page.getByRole("dialog", { name: "Edit this expense" });
   await expect(dialog).toBeVisible();
   await dialog.getByLabel("Amount (MUR)").fill("777");
+  // The optional second line: kept on the record, shown under the label, and
+  // searchable alongside it.
+  await dialog
+    .getByLabel("Additional details (optional)")
+    .fill("Paid at the Vacoas station, receipt 4417");
   await dialog.getByRole("button", { name: "Save changes" }).click();
   await expect(page.locator(".toast")).toContainText("Expense updated");
   await expect(page.locator(".data-table tbody")).toContainText("Rs 777.00");
+  await expect(page.locator(".row-note")).toContainText("receipt 4417");
+  await page.getByLabel("Search expenses").fill("4417");
+  await expect(page.locator(".data-table tbody tr")).toHaveCount(1);
+  await page.getByLabel("Search expenses").fill("");
 
   // Deleting names the record, the amount and the date before it commits.
   await page.getByRole("button", { name: /Edit Delivery fuel/ }).click();
@@ -343,7 +369,9 @@ test("an invoiced customer cannot be deleted, and is told why", async ({
   await page.goto("/");
   await page.getByRole("button", { name: "Explore the demo" }).click();
   await page
-    .locator(testInfo.project.name === "mobile" ? ".bottom-nav" : ".sidebar nav")
+    .locator(
+      testInfo.project.name === "mobile" ? ".bottom-nav" : ".sidebar nav",
+    )
     .getByRole("button", { name: /Customers/ })
     .click();
 
@@ -364,7 +392,9 @@ test("filters narrow the list and report the real total", async ({
   await page.goto("/");
   await page.getByRole("button", { name: "Explore the demo" }).click();
   await page
-    .locator(testInfo.project.name === "mobile" ? ".bottom-nav" : ".sidebar nav")
+    .locator(
+      testInfo.project.name === "mobile" ? ".bottom-nav" : ".sidebar nav",
+    )
     .getByRole("button", { name: /Invoices/ })
     .click();
 
@@ -405,7 +435,9 @@ test("expenses filter by category and report the filtered sum", async ({
   await page.goto("/");
   await page.getByRole("button", { name: "Explore the demo" }).click();
   await page
-    .locator(testInfo.project.name === "mobile" ? ".bottom-nav" : ".sidebar nav")
+    .locator(
+      testInfo.project.name === "mobile" ? ".bottom-nav" : ".sidebar nav",
+    )
     .getByRole("button", { name: /Expenses/ })
     .click();
 
@@ -423,5 +455,78 @@ test("expenses filter by category and report the filtered sum", async ({
   await expect(rows).toHaveCount(1);
   await expect(page.locator(".panel-heading")).toContainText(
     "Matching these filters",
+  );
+});
+
+test("an unpaid invoice can be corrected, printed in mono, and deleted", async ({
+  page,
+}, testInfo) => {
+  await page.goto("/");
+  const openDemo = async () => {
+    await page.getByRole("button", { name: "Explore the demo" }).click();
+    await page
+      .locator(
+        testInfo.project.name === "mobile" ? ".bottom-nav" : ".sidebar nav",
+      )
+      .getByRole("button", { name: /Invoices/ })
+      .click();
+  };
+  const open = async (number: string) => {
+    await page.getByLabel("Search invoices").fill(number);
+    await page.getByRole("button", { name: `View ${number}` }).click();
+  };
+  await openDemo();
+  const dialog = page.getByRole("dialog");
+
+  // OP-1001 carries a deposit, so the record is fixed: void is the only way out.
+  await open("OP-1001");
+  await expect(
+    dialog.getByRole("button", { name: "Edit", exact: true }),
+  ).toHaveCount(0);
+  await expect(dialog.getByRole("button", { name: "Delete" })).toHaveCount(0);
+  await page.getByRole("button", { name: "Close dialog" }).click();
+
+  // OP-1003 has had nothing paid against it, so it is still correctable.
+  await open("OP-1003");
+  await expect(dialog.locator(".paper-grand")).toContainText("1,740.00");
+  await dialog.getByRole("button", { name: "Edit", exact: true }).click();
+  await expect(
+    page.getByRole("dialog", { name: "Correct OP-1003" }),
+  ).toBeVisible();
+  await dialog.getByLabel("Item 1 quantity").fill("10");
+  await dialog.getByRole("button", { name: "Save changes" }).click();
+
+  // Back to the invoice: same number, same place in the ledger, new figures.
+  await expect(dialog.locator(".print-toolbar .badge")).toBeVisible();
+  await expect(dialog.locator(".paper-grand")).toContainText("1,450.00");
+  await expect(dialog.locator(".paper-title")).toContainText("OP-1003");
+
+  // Ink: the same sheet without the brand greens, remembered across sessions.
+  const ink = dialog.getByRole("button", { name: "Black & white" });
+  await expect(dialog.locator(".invoice-paper.mono-paper")).toHaveCount(0);
+  await expect(ink).toHaveAttribute("aria-pressed", "false");
+  await ink.click();
+  await expect(ink).toHaveAttribute("aria-pressed", "true");
+  await expect(dialog.locator(".invoice-paper.mono-paper")).toHaveCount(1);
+  await page.reload();
+  await openDemo();
+  await open("OP-1003");
+  await expect(dialog.locator(".invoice-paper.mono-paper")).toHaveCount(1);
+  await dialog.getByRole("button", { name: "Black & white" }).click();
+  await expect(dialog.locator(".invoice-paper.mono-paper")).toHaveCount(0);
+
+  // Deleting takes it off the ledger entirely, and asks for the number first.
+  await dialog.getByRole("button", { name: "Delete" }).click();
+  const confirm = page.getByRole("dialog", { name: "Delete OP-1003?" });
+  const remove = confirm.getByRole("button", { name: "Delete invoice" });
+  await expect(remove).toBeDisabled();
+  await confirm.getByRole("textbox").fill("OP-1003");
+  await expect(remove).toBeEnabled();
+  await remove.click();
+
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await page.getByLabel("Search invoices").fill("OP-1003");
+  await expect(page.getByRole("button", { name: "View OP-1003" })).toHaveCount(
+    0,
   );
 });

@@ -2,11 +2,14 @@ import { useEffect, useRef, useState } from "react";
 import {
   ArrowRight,
   Check,
+  Contrast,
   Copy,
   Download,
+  Pencil,
   Plus,
   Printer,
   RefreshCw,
+  Trash2,
 } from "lucide-react";
 import type { Session } from "@supabase/supabase-js";
 import * as api from "./api";
@@ -25,6 +28,8 @@ import {
   balance,
   status,
   canDeleteCustomer,
+  canDeleteInvoice,
+  canEditInvoice,
   invoiceCountFor,
   openingFor,
   openingPaid,
@@ -70,6 +75,7 @@ import { useDebounced, useQuery } from "./lib/useQuery";
 import Pager from "./components/Pager";
 import FilterBar from "./components/FilterBar";
 import { isNative, printDocument, saveTextFile } from "./lib/platform";
+import { readMonoPrint, saveMonoPrint } from "./lib/printStyle";
 import {
   applyTheme,
   readTheme,
@@ -82,6 +88,36 @@ import type { Modal, Page } from "./lib/nav";
 /** Rows per page. Tuned for a phone: a page you can thumb through, not scroll. */
 const PAGE = 25;
 const LEDGER_PAGE = 50;
+
+/**
+ * Switches the sheet between the brand greens and black-and-white.
+ *
+ * It sits in the print toolbar rather than in Settings because it is decided by
+ * what comes out of the printer, and the preview beside it is the only place
+ * that question can be answered. The choice is remembered, so a business with a
+ * mono laser sets it once.
+ */
+function InkToggle({
+  mono,
+  onChange,
+}: {
+  mono: boolean;
+  onChange: (mono: boolean) => void;
+}) {
+  return (
+    <button
+      type="button"
+      className="btn secondary toggle"
+      // A toggle keeps one name and reports its state; renaming it to the
+      // action ("Colour") would make the pressed state read backwards.
+      aria-pressed={mono}
+      onClick={() => onChange(!mono)}
+    >
+      <Contrast size={16} />
+      Black &amp; white
+    </button>
+  );
+}
 
 export default function App() {
   const [session, setSession] = useState<Session | null>(null);
@@ -124,10 +160,16 @@ export default function App() {
   // they all get the same dialog and the same language.
   const [confirming, setConfirming] = useState<
     | { kind: "void"; invoice: Invoice }
+    | { kind: "deleteInvoice"; invoice: Invoice }
     | { kind: "customer"; customer: Customer }
     | { kind: "expense"; expense: Expense }
     | null
   >(null);
+  // The open invoice, reopened for correction. Only ever set for one that has
+  // had nothing paid against it.
+  const [editing, setEditing] = useState(false);
+  // Ink: the invoice prints in the brand greens, or in black and grey only.
+  const [mono, setMono] = useState(readMonoPrint);
   // Settings holds edits in its own form state until Save is pressed. Leaving
   // the page would discard them silently, which is how an uploaded logo gets
   // lost between choosing the file and saving.
@@ -202,7 +244,15 @@ export default function App() {
     setInvoiceOffset(0);
     setExpenseOffset(0);
     setLedgerOffset(0);
-  }, [debouncedSearch, filter, invoiceCustomer, expenseCategory, from, to, ledgerCustomer]);
+  }, [
+    debouncedSearch,
+    filter,
+    invoiceCustomer,
+    expenseCategory,
+    from,
+    to,
+    ledgerCustomer,
+  ]);
   // Theme: apply on change, and follow the device while set to "system".
   useEffect(() => {
     const resolved = applyTheme(theme, true);
@@ -236,6 +286,13 @@ export default function App() {
     }
     if (customerOverInvoice) {
       closeStackedCustomer();
+      return true;
+    }
+    // Back out of a correction to the invoice it belongs to, not out of the
+    // dialog: the edits are still on screen and still unsaved.
+    if (editing) {
+      setEditing(false);
+      setError("");
       return true;
     }
     if (modal) {
@@ -272,7 +329,9 @@ export default function App() {
   }
   // Re-runs the last failed write. Every write carries a client-generated id and
   // the database functions are idempotent, so a retry cannot duplicate a record.
-  const lastWrite = useRef<{ work: () => Promise<void>; success: string }>(null);
+  const lastWrite = useRef<{ work: () => Promise<void>; success: string }>(
+    null,
+  );
   const [canRetry, setCanRetry] = useState(false);
   async function act(work: () => Promise<void>, success: string) {
     if (busy) return;
@@ -357,9 +416,7 @@ export default function App() {
   async function exportCsv(filename: string, rows: unknown[][]) {
     try {
       await saveTextFile(filename, toCsv(rows), CSV_MIME);
-      setNotice(
-        isNative() ? "CSV ready to share" : "Exported " + filename,
-      );
+      setNotice(isNative() ? "CSV ready to share" : "Exported " + filename);
     } catch (e) {
       setError(errorText(e));
     }
@@ -382,16 +439,98 @@ export default function App() {
     }
   }
   // Printing is the deliverable, so a platform that cannot print must say so
-  // rather than let the button appear to do nothing.
+  // rather than let the button appear to do nothing — and one that can must
+  // confirm the file exists, because a PDF saved silently looks like a PDF that
+  // was never saved. Only Android can prove it; a browser tells its page nothing
+  // about what its print dialog did, so on web this stays quiet rather than
+  // claiming a save it cannot see.
   async function print(documentName: string) {
     try {
-      if (await printDocument(documentName)) return;
-      setError(
-        "Printing is not available on this device yet. Open Opervia in a browser to print or save a PDF.",
-      );
+      const outcome = await printDocument(documentName);
+      if (outcome === "unsupported")
+        setError(
+          "Printing is not available on this device yet. Open Opervia in a browser to print or save a PDF.",
+        );
+      else if (outcome === "completed")
+        setNotice(`${documentName} saved successfully`);
+      else if (outcome === "failed")
+        setError(
+          "That print job did not finish. Please try again, or pick a different destination.",
+        );
+      // "cancelled" is the user changing their mind, and "unknown" is a
+      // platform that will not say. Neither is news.
     } catch (e) {
       setError(errorText(e));
     }
+  }
+  async function updateInvoice(input: InvoiceInput) {
+    return await act(async () => {
+      validateInvoice(input);
+      if (demo) {
+        const existing = data.invoices.find((i) => i.id === input.id)!;
+        const customer = data.customers.find(
+          (c) => c.id === input.customer_id,
+        )!;
+        // The number, the id and the void flag are the invoice's identity and
+        // survive the correction; everything else is re-issued from the form.
+        const updated: Invoice = {
+          ...existing,
+          customer_id: input.customer_id,
+          customer: { ...customer },
+          business: { ...data.business },
+          date: input.date,
+          due_date: input.due_date,
+          items: input.items.map((item) => ({ ...item })),
+          notes: input.notes,
+          tax_rate: input.tax_rate,
+          ...totals(input.items, input.tax_rate),
+        };
+        setData((d) => ({
+          ...d,
+          invoices: d.invoices.map((i) => (i.id === input.id ? updated : i)),
+          payments: input.deposit
+            ? [
+                ...d.payments,
+                {
+                  id: crypto.randomUUID(),
+                  invoice_id: input.id,
+                  date: input.date,
+                  amount: input.deposit,
+                  method: input.method,
+                  reference: "Initial deposit",
+                },
+              ]
+            : d.payments,
+        }));
+        setSelected(updated);
+      } else {
+        await api.updateInvoice(input);
+        await sync();
+        setSelected(await api.getInvoice(input.id));
+      }
+    }, "Invoice updated");
+  }
+  async function removeInvoice(invoice: Invoice) {
+    const ok = await act(async () => {
+      if (demo)
+        setData((d) => ({
+          ...d,
+          invoices: d.invoices.filter((i) => i.id !== invoice.id),
+          payments: d.payments.filter((p) => p.invoice_id !== invoice.id),
+        }));
+      else {
+        await api.deleteInvoice(invoice.id);
+        await sync();
+      }
+    }, "Invoice deleted");
+    if (ok) {
+      setConfirming(null);
+      closeModal();
+    }
+  }
+  function changeMono(next: boolean) {
+    setMono(next);
+    saveMonoPrint(next);
   }
   function go(p: Page) {
     if (settingsDirty && page === "Settings" && p !== "Settings") {
@@ -448,6 +587,7 @@ export default function App() {
     if (busy) return;
     setModal(null);
     setSelected(null);
+    setEditing(false);
     setCustomerEdit(undefined);
     setExpenseEdit(undefined);
     setPaymentOpen(false);
@@ -805,10 +945,14 @@ export default function App() {
                   ledgerCustomer={ledgerCustomer}
                   setLedgerCustomer={setLedgerCustomer}
                   opening={
-                    ledgerCustomer ? openingFor(ledgerCustomer, data) : undefined
+                    ledgerCustomer
+                      ? openingFor(ledgerCustomer, data)
+                      : undefined
                   }
                   openingOwed={
-                    ledgerCustomer ? openingOutstanding(ledgerCustomer, data) : 0
+                    ledgerCustomer
+                      ? openingOutstanding(ledgerCustomer, data)
+                      : 0
                   }
                   busy={busy}
                   onRecordOpeningPayment={async (payment) => {
@@ -909,7 +1053,11 @@ export default function App() {
       {/* Mobile navigation. Five daily destinations in the thumb zone, one tap
           each; Settings and sign-out live in the topbar. Hidden above 760px,
           where the sidebar is the navigation. */}
-      <BottomNav page={page} unpaidCount={data.invoices.filter((i) => !i.voided).length} go={go} />
+      <BottomNav
+        page={page}
+        unpaidCount={data.invoices.filter((i) => !i.voided).length}
+        go={go}
+      />
       <button
         type="button"
         className={`fab ${scrolled ? "fab-in" : ""}`}
@@ -930,13 +1078,10 @@ export default function App() {
             customer={customerEdit}
             busy={busy}
             invoiceCount={
-              customerEdit
-                ? invoiceCountFor(customerEdit.id, data.invoices)
-                : 0
+              customerEdit ? invoiceCountFor(customerEdit.id, data.invoices) : 0
             }
             onDelete={
-              customerEdit &&
-              canDeleteCustomer(customerEdit.id, data)
+              customerEdit && canDeleteCustomer(customerEdit.id, data)
                 ? () =>
                     setConfirming({ kind: "customer", customer: customerEdit })
                 : undefined
@@ -1012,20 +1157,23 @@ export default function App() {
                 : undefined
             }
             onSave={async (expense) => {
-              const ok = await act(async () => {
-                if (demo)
-                  setData((d) => ({
-                    ...d,
-                    expenses: [
-                      ...d.expenses.filter((x) => x.id !== expense.id),
-                      expense,
-                    ],
-                  }));
-                else {
-                  await api.saveExpense(expense);
-                  await sync();
-                }
-              }, expenseEdit ? "Expense updated" : "Expense recorded");
+              const ok = await act(
+                async () => {
+                  if (demo)
+                    setData((d) => ({
+                      ...d,
+                      expenses: [
+                        ...d.expenses.filter((x) => x.id !== expense.id),
+                        expense,
+                      ],
+                    }));
+                  else {
+                    await api.saveExpense(expense);
+                    await sync();
+                  }
+                },
+                expenseEdit ? "Expense updated" : "Expense recorded",
+              );
               if (ok) closeModal();
             }}
           />
@@ -1047,17 +1195,25 @@ export default function App() {
               Print an empty sheet to fill in by hand. No ledger entry is
               created.
             </p>
-            <button
-              type="button"
-              className="btn primary"
-              onClick={() => void print("Blank invoice sheet")}
-            >
-              <Printer size={17} />
-              Print / Save PDF
-            </button>
+            <div className="button-row">
+              <InkToggle mono={mono} onChange={changeMono} />
+              <button
+                type="button"
+                className="btn primary"
+                onClick={() => void print("Blank invoice sheet")}
+              >
+                <Printer size={17} />
+                Print / Save PDF
+              </button>
+            </div>
           </div>
           <div className="print-area">
-            <InvoicePrint business={data.business} payments={[]} blank />
+            <InvoicePrint
+              business={data.business}
+              payments={[]}
+              blank
+              mono={mono}
+            />
           </div>
         </ModalShell>
       )}
@@ -1065,14 +1221,16 @@ export default function App() {
         <ModalShell
           title={
             selected
-              ? `${selected.number} · ${selected.customer.name}`
+              ? editing
+                ? `Correct ${selected.number}`
+                : `${selected.number} · ${selected.customer.name}`
               : "Create an invoice"
           }
           wide
           suspended={customerOverInvoice || !!confirming}
           onClose={closeModal}
         >
-          {currentInvoice ? (
+          {currentInvoice && !editing ? (
             <>
               <div className="print-toolbar">
                 <span
@@ -1102,6 +1260,7 @@ export default function App() {
                     <Printer size={16} />
                     Print / Save PDF
                   </button>
+                  <InkToggle mono={mono} onChange={changeMono} />
                   <button
                     type="button"
                     className="btn secondary"
@@ -1110,6 +1269,21 @@ export default function App() {
                     <Copy size={16} />
                     Invoice again
                   </button>
+                  {canEditInvoice(currentInvoice, data.payments) && (
+                    <button
+                      type="button"
+                      className="btn secondary"
+                      disabled={busy}
+                      onClick={() => {
+                        setError("");
+                        setPaymentOpen(false);
+                        setEditing(true);
+                      }}
+                    >
+                      <Pencil size={16} />
+                      Edit
+                    </button>
+                  )}
                   {!currentInvoice.voided &&
                     paid(currentInvoice, data.payments) === 0 && (
                       <button
@@ -1125,6 +1299,21 @@ export default function App() {
                         Void
                       </button>
                     )}
+                  {canDeleteInvoice(currentInvoice, data.payments) && (
+                    <button
+                      className="btn danger"
+                      disabled={busy}
+                      onClick={() =>
+                        setConfirming({
+                          kind: "deleteInvoice",
+                          invoice: currentInvoice,
+                        })
+                      }
+                    >
+                      <Trash2 size={16} />
+                      Delete
+                    </button>
+                  )}
                 </div>
               </div>
               {paymentOpen && (
@@ -1169,6 +1358,7 @@ export default function App() {
                   invoice={currentInvoice}
                   business={data.business}
                   payments={data.payments}
+                  mono={mono}
                 />
               </div>
               {data.payments.some(
@@ -1193,9 +1383,19 @@ export default function App() {
           ) : (
             <>
               <InvoiceForm
+                // Remounting on the way in and out of a correction is the point:
+                // the form seeds its state once, so a shared instance would show
+                // the new-invoice draft when editing, and the edited invoice
+                // afterwards.
+                key={editing ? `edit-${currentInvoice?.id}` : "new"}
                 data={data}
                 busy={busy}
                 template={template}
+                invoice={editing ? currentInvoice : undefined}
+                onCancel={() => {
+                  setEditing(false);
+                  setError("");
+                }}
                 presetCustomer={presetCustomer}
                 onPresetConsumed={() => setPresetCustomer("")}
                 onAddCustomer={() => {
@@ -1204,6 +1404,11 @@ export default function App() {
                   setCustomerOverInvoice(true);
                 }}
                 onSave={async (input) => {
+                  if (editing) {
+                    const saved = await updateInvoice(input);
+                    if (saved) setEditing(false);
+                    return !!saved;
+                  }
                   const ok = await act(async () => {
                     validateInvoice(input);
                     if (demo) {
@@ -1238,10 +1443,10 @@ export default function App() {
                       setSelected(invoice);
                     } else {
                       await api.createInvoice(input);
-                      const next = await sync();
-                      setSelected(
-                        next.invoices.find((i) => i.id === input.id)!,
-                      );
+                      await sync();
+                      // Read the invoice back rather than looking for it in the
+                      // reference data, which carries no transactions at all.
+                      setSelected(await api.getInvoice(input.id));
                     }
                   }, "Invoice created");
                   return !!ok;
@@ -1285,6 +1490,42 @@ export default function App() {
             )
           }
           onConfirm={() => void voidInvoice(confirming.invoice)}
+          onCancel={() => {
+            setConfirming(null);
+            setError("");
+          }}
+        />
+      )}
+      {confirming?.kind === "deleteInvoice" && (
+        <ConfirmDialog
+          title={`Delete ${confirming.invoice.number}?`}
+          intro={
+            <>
+              This permanently removes <b>{confirming.invoice.number}</b> for{" "}
+              <b>{confirming.invoice.customer.name}</b>, worth{" "}
+              <b>{money(confirming.invoice.total)}</b>.
+            </>
+          }
+          detail={
+            confirming.invoice.voided
+              ? "It is already void and settles nothing, so no balance changes. It leaves your history and the ledger entirely, and its number is never reused — the gap in the numbering is all that will remain. This cannot be undone."
+              : "Nothing has been paid against it, so no balance changes. It leaves your history and the ledger entirely, and its number is never reused — the gap in the numbering is all that will remain. If the invoice has already been sent to your customer, void it instead so your copy still matches theirs. This cannot be undone."
+          }
+          confirmPhrase={confirming.invoice.number}
+          confirmLabel="Delete invoice"
+          busy={busy}
+          error={
+            error && (
+              <WriteError
+                error={error}
+                canRetry={canRetry}
+                busy={busy}
+                onRetry={retryWrite}
+                safe="Trying again is safe."
+              />
+            )
+          }
+          onConfirm={() => void removeInvoice(confirming.invoice)}
           onCancel={() => {
             setConfirming(null);
             setError("");

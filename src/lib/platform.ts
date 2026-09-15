@@ -20,27 +20,41 @@ export const platform = () => Capacitor.getPlatform(); // "web" | "android" | "i
  * On iOS and web this is never called.
  */
 interface NativePrintPlugin {
-  print(options: { name: string }): Promise<void>;
+  print(options: { name: string }): Promise<{ status: PrintOutcome }>;
 }
 const NativePrint = registerPlugin<NativePrintPlugin>("NativePrint");
+
+/**
+ * How a print ended.
+ *
+ * `completed` is the only one worth celebrating, and Android is the only
+ * platform that can prove it: the spooler reports the job's final state, so a
+ * "saved" message there is a fact rather than a hope. A browser tells its page
+ * nothing about what the print dialog did, which is why web reports `unknown`
+ * and the app stays quiet instead of claiming a save it cannot see.
+ */
+export type PrintOutcome =
+  "completed" | "cancelled" | "failed" | "unknown" | "unsupported";
 
 /**
  * Prints the invoice currently rendered in the DOM.
  * Web: the browser's own print dialog, unchanged.
  * Android: the system print sheet, which includes "Save as PDF".
- * Returns false when no print path exists, so the caller can say so honestly
- * instead of appearing to do nothing.
+ * Returns "unsupported" when no print path exists, so the caller can say so
+ * honestly instead of appearing to do nothing.
  */
-export async function printDocument(documentName: string): Promise<boolean> {
+export async function printDocument(
+  documentName: string,
+): Promise<PrintOutcome> {
   if (!isNative()) {
     window.print();
-    return true;
+    return "unknown";
   }
   if (platform() === "android") {
-    await NativePrint.print({ name: documentName });
-    return true;
+    const { status } = await NativePrint.print({ name: documentName });
+    return status ?? "unknown";
   }
-  return false;
+  return "unsupported";
 }
 
 /**

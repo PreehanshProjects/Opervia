@@ -20,6 +20,7 @@ export default function ExpenseForm({
       id: crypto.randomUUID(),
       date: today(),
       description: "",
+      note: "",
       category: "Supplies",
       amount: 0,
     },
@@ -38,8 +39,21 @@ export default function ExpenseForm({
           <input
             maxLength={500}
             required
+            placeholder="e.g. Delivery fuel"
             value={form.description}
             onChange={(e) => setForm({ ...form, description: e.target.value })}
+          />
+        </label>
+        {/* The line above is what every list, export and search shows. This one
+            is for the owner alone: where it went, which receipt, who was paid. */}
+        <label className="full">
+          Additional details (optional)
+          <textarea
+            rows={2}
+            maxLength={1000}
+            placeholder="Anything worth remembering about this expense…"
+            value={form.note ?? ""}
+            onChange={(e) => setForm({ ...form, note: e.target.value })}
           />
         </label>
         <label>
