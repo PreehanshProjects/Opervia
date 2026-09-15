@@ -392,17 +392,27 @@ export default function App() {
   }
   async function removeCustomer(customer: Customer) {
     const ok = await act(async () => {
-      // Guarded again here: the list could have changed since the dialog opened.
-      if (!canDeleteCustomer(customer.id, data))
-        throw new Error(
-          "This customer now has invoices, so their details stay on record.",
-        );
-      if (demo)
+      if (demo) {
+        // Demo holds every record in memory, so it can check for itself.
+        if (
+          !canDeleteCustomer(
+            customer.id,
+            data,
+            invoiceCountFor(customer.id, data.invoices),
+          )
+        )
+          throw new Error(
+            "This customer now has invoices, so their details stay on record.",
+          );
         setData((d) => ({
           ...d,
           customers: d.customers.filter((c) => c.id !== customer.id),
         }));
-      else {
+      } else {
+        // public.delete_customer re-checks against the records themselves and
+        // raises the reason, which is the only check that can be trusted: the
+        // list may have changed since the dialog opened, and the browser has no
+        // invoices to count in the first place.
         await api.deleteCustomer(customer.id);
         await sync();
       }
@@ -627,6 +637,19 @@ export default function App() {
   const received = figures?.received ?? 0;
   const expenses = figures?.expenses ?? 0;
 
+  // How many invoices the open customer has. Asked of the server, because
+  // loadReference carries none: counting data.invoices in the browser returns
+  // zero for everyone, which is what used to offer Delete on a customer with a
+  // shelf of invoices. Null while it is still being fetched.
+  const customerInvoices = useQuery(
+    () =>
+      demo
+        ? Promise.resolve(invoiceCountFor(customerEdit!.id, data.invoices))
+        : api.countCustomerInvoices(customerEdit!.id),
+    JSON.stringify(["customer-invoices", customerEdit?.id, demo, dataVersion]),
+    !!customerEdit,
+  );
+  const customerInvoiceCount = customerEdit ? customerInvoices.data : 0;
   // Invoices: one page, filtered and counted on the server.
   const invoiceQuery: InvoiceQuery = {
     status: filter,
@@ -1077,11 +1100,13 @@ export default function App() {
           <CustomerForm
             customer={customerEdit}
             busy={busy}
-            invoiceCount={
-              customerEdit ? invoiceCountFor(customerEdit.id, data.invoices) : 0
-            }
+            invoiceCount={customerInvoiceCount ?? 0}
             onDelete={
-              customerEdit && canDeleteCustomer(customerEdit.id, data)
+              // Never offered before the count is in: an affordance that fails
+              // on tapping is worse than one that appears a moment late.
+              customerEdit &&
+              customerInvoiceCount !== null &&
+              canDeleteCustomer(customerEdit.id, data, customerInvoiceCount)
                 ? () =>
                     setConfirming({ kind: "customer", customer: customerEdit })
                 : undefined

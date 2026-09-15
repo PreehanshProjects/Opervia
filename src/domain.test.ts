@@ -87,11 +87,30 @@ describe("opening balances", () => {
   const base = () => {
     const d = emptyData();
     d.customers = [
-      { id: "c1", name: "Coastal Kitchen", address: "", phone: "", email: "", brn: "" },
-      { id: "c2", name: "The Garden Café", address: "", phone: "", email: "", brn: "" },
+      {
+        id: "c1",
+        name: "Coastal Kitchen",
+        address: "",
+        phone: "",
+        email: "",
+        brn: "",
+      },
+      {
+        id: "c2",
+        name: "The Garden Café",
+        address: "",
+        phone: "",
+        email: "",
+        brn: "",
+      },
     ];
     d.openings = [
-      { customer_id: "c1", date: "2026-01-01", amount: 12400, note: "From the book" },
+      {
+        customer_id: "c1",
+        date: "2026-01-01",
+        amount: 12400,
+        note: "From the book",
+      },
     ];
     return d;
   };
@@ -187,8 +206,10 @@ describe("opening balances", () => {
 
   it("keeps a customer with an opening balance out of reach of deletion", () => {
     const d = base();
-    expect(canDeleteCustomer("c1", d)).toBe(false);
-    expect(canDeleteCustomer("c2", d)).toBe(true);
+    expect(canDeleteCustomer("c1", d, 0)).toBe(false);
+    expect(canDeleteCustomer("c2", d, 0)).toBe(true);
+    // And one with invoices, however clean the rest of their record.
+    expect(canDeleteCustomer("c2", d, 1)).toBe(false);
   });
 });
 
@@ -196,7 +217,14 @@ describe("queries (the in-memory mirror of the SQL functions)", () => {
   const build = () => {
     const d = emptyData();
     d.customers = [
-      { id: "c1", name: "Alpha Ltd", address: "", phone: "", email: "", brn: "" },
+      {
+        id: "c1",
+        name: "Alpha Ltd",
+        address: "",
+        phone: "",
+        email: "",
+        brn: "",
+      },
       { id: "c2", name: "Beta Co", address: "", phone: "", email: "", brn: "" },
     ];
     d.invoices = Array.from({ length: 12 }, (_, n) => ({
@@ -241,7 +269,8 @@ describe("queries (the in-memory mirror of the SQL functions)", () => {
     const d = build();
     expect(queryInvoices(d, { customer_id: "c1", limit: 50 }).total).toBe(6);
     expect(
-      queryInvoices(d, { from: "2026-03-03", to: "2026-03-05", limit: 50 }).total,
+      queryInvoices(d, { from: "2026-03-03", to: "2026-03-05", limit: 50 })
+        .total,
     ).toBe(3);
     expect(queryInvoices(d, { search: "beta", limit: 50 }).total).toBe(6);
     expect(queryInvoices(d, { search: "nothing", limit: 50 }).total).toBe(0);

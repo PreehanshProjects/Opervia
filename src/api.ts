@@ -142,18 +142,27 @@ export async function saveCustomer(customer: Customer) {
   check(error);
 }
 /**
- * Removes a customer outright. Only ever called for customers with no invoices:
- * the invoices table carries a foreign key to (id, owner_id) with no ON DELETE
- * clause, so the database refuses to orphan financial history. The caller checks
- * first so the user gets a real explanation instead of a constraint violation.
+ * Removes a customer outright, through a function that checks first.
+ *
+ * A plain delete relies on the foreign key to refuse, and a constraint
+ * violation is not an explanation. Worse, the client cannot do the checking
+ * itself: loadReference carries no invoices, so anything counting them in the
+ * browser counts zero. The server holds the records, so the server decides and
+ * says why.
  */
 export async function deleteCustomer(id: string) {
-  const { error } = await supabase!
-    .from("customers")
-    .delete()
-    .eq("id", id)
-    .eq("owner_id", await owner());
+  const { error } = await supabase!.rpc("delete_customer", {
+    customer_uuid: id,
+  });
   check(error);
+}
+/**
+ * How many invoices a customer has, asked of the server because the browser
+ * never has them. Only the count is needed, so only one row is fetched.
+ */
+export async function countCustomerInvoices(id: string): Promise<number> {
+  const page = await listInvoices({ customer_id: id, limit: 1 });
+  return page.total;
 }
 export async function createInvoice(input: InvoiceInput) {
   const { error } = await supabase!.rpc("create_invoice", { payload: input });

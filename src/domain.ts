@@ -180,9 +180,23 @@ export const canDeleteInvoice = (invoice: Invoice, payments: Payment[]) =>
 export function invoiceCountFor(customerId: string, invoices: Invoice[]) {
   return invoices.filter((i) => i.customer_id === customerId).length;
 }
-export function canDeleteCustomer(customerId: string, data: Data) {
+/**
+ * Whether the Delete affordance should be offered at all.
+ *
+ * `invoiceCount` is passed in rather than counted from `data.invoices`, because
+ * outside the demo that array is empty by design — loadReference carries no
+ * transactions. Counting it here returned zero for every customer, so Delete
+ * was offered for all of them and the foreign key did the refusing. The count
+ * now comes from the server; public.delete_customer checks again and is the
+ * decision that matters.
+ */
+export function canDeleteCustomer(
+  customerId: string,
+  data: Data,
+  invoiceCount: number,
+) {
   return (
-    invoiceCountFor(customerId, data.invoices) === 0 &&
+    invoiceCount === 0 &&
     !openingFor(customerId, data) &&
     !data.payments.some((p) => p.customer_id === customerId)
   );

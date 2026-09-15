@@ -49,6 +49,7 @@ beforeAll(async () => {
     "202609140004_server_queries.sql",
     "202609160001_edit_and_delete_invoices.sql",
     "202609160002_expense_details_and_grants.sql",
+    "202609160003_delete_customer.sql",
   ])
     await db.exec(
       readFileSync(
@@ -822,5 +823,104 @@ describe.sequential("expenses: the grants the app always needed", () => {
     await expect(
       db.query("delete from public.customers where id=$1", [customerA]),
     ).rejects.toThrow(/foreign key/);
+  });
+});
+
+describe.sequential("deleting a customer", () => {
+  const plain = "10000000-0000-4000-8000-00000000001a";
+  const invoiced = "10000000-0000-4000-8000-00000000001b";
+  const owing = "10000000-0000-4000-8000-00000000001c";
+  const del = (id: string) =>
+    db.query("select public.delete_customer($1)", [id]);
+
+  beforeAll(async () => {
+    await asUser(userA);
+    for (const [id, name] of [
+      [plain, "Plain Contact"],
+      [invoiced, "Invoiced Ltd"],
+      [owing, "Owing Ltd"],
+    ])
+      await db.query(
+        "insert into public.customers(id,owner_id,name) values($1,$2,$3)",
+        [id, userA, name],
+      );
+    await rpc("create_invoice", {
+      id: "20000000-0000-4000-8000-00000000002a",
+      customer_id: invoiced,
+      date: "2026-01-01",
+      due_date: "2026-01-31",
+      items: [
+        { description: "Box", quantity: 1, price: 10, unit: "pc", section: "" },
+      ],
+      notes: "",
+      tax_rate: 0,
+      deposit: 0,
+      method: "Cash",
+    });
+    await rpc("save_opening_balance", {
+      customer_id: owing,
+      date: "2026-01-01",
+      amount: 500,
+      note: "From the book",
+    });
+  });
+
+  it("deletes a contact who is on no record at all", async () => {
+    await del(plain);
+    expect(
+      (await db.query("select 1 from public.customers where id=$1", [plain]))
+        .rows,
+    ).toHaveLength(0);
+  });
+
+  it("refuses one with invoices, and says how many", async () => {
+    // The case the browser could not see: it counts data.invoices, which is
+    // empty on a real account, so it offered Delete and the foreign key refused
+    // with "something this record depends on is missing".
+    await expect(del(invoiced)).rejects.toThrow(/has 1 invoice\(s\)/);
+    expect(
+      (await db.query("select 1 from public.customers where id=$1", [invoiced]))
+        .rows,
+    ).toHaveLength(1);
+  });
+
+  it("refuses one carrying an opening balance", async () => {
+    await expect(del(owing)).rejects.toThrow(/opening balance/);
+  });
+
+  it("refuses one with payments but no invoice and no opening balance", async () => {
+    // Nothing the app can do produces this state — record_payment requires an
+    // opening balance to settle — so the row is planted directly. The branch is
+    // defence in depth, and this proves it is actually wired up.
+    const paid = "10000000-0000-4000-8000-00000000001d";
+    await db.exec("reset role");
+    await db.query(
+      "insert into public.customers(id,owner_id,name) values($1,$2,$3)",
+      [paid, userA, "Paid Contact"],
+    );
+    await db.query(
+      `insert into public.payments(id,owner_id,customer_id,date,amount,method)
+       values($1,$2,$3,'2026-01-02',100,'Cash')`,
+      ["30000000-0000-4000-8000-00000000002a", userA, paid],
+    );
+    await asUser(userA);
+    await expect(del(paid)).rejects.toThrow(/payments on record/);
+  });
+
+  it("will not reach into another account", async () => {
+    await asUser(userB);
+    await expect(del(invoiced)).rejects.toThrow("Customer not found");
+    // Checked back as the owner: userB cannot see the row either way, so
+    // asserting its survival from that session would prove nothing.
+    await asUser(userA);
+    expect(
+      (await db.query("select 1 from public.customers where id=$1", [invoiced]))
+        .rows,
+    ).toHaveLength(1);
+  });
+
+  it("is not callable anonymously", async () => {
+    await db.exec("reset role; set role anon");
+    await expect(del(plain)).rejects.toThrow(/permission denied/);
   });
 });
