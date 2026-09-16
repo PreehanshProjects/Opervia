@@ -43,6 +43,7 @@ import {
   type InvoiceQuery,
   type LedgerMode,
   type LedgerQuery,
+  type LedgerRow,
   type Summary,
   totals,
   validateInvoice,
@@ -54,6 +55,7 @@ import {
 import { makeDemo } from "./demo";
 import Auth from "./Auth";
 import InvoicePrint from "./InvoicePrint";
+import StatementPrint from "./StatementPrint";
 import ModalShell from "./components/ModalShell";
 import WriteError from "./components/WriteError";
 import ConfirmDialog from "./components/ConfirmDialog";
@@ -148,6 +150,17 @@ export default function App() {
   const [ledgerOffset, setLedgerOffset] = useState(0);
   const [ledgerCustomer, setLedgerCustomer] = useState("");
   const [ledgerMode, setLedgerMode] = useState<LedgerMode>("account");
+  // Gathered in full when the statement is opened, so the sheet shows the whole
+  // account rather than whichever page of it happened to be on screen.
+  const [statement, setStatement] = useState<{
+    customer: Customer;
+    rows: LedgerRow[];
+    debits: number;
+    credits: number;
+    closing: number;
+    from: string;
+    to: string;
+  } | null>(null);
   const [customerEdit, setCustomerEdit] = useState<Customer | undefined>();
   const [expenseEdit, setExpenseEdit] = useState<Expense | undefined>();
   const [paymentOpen, setPaymentOpen] = useState(false);
@@ -441,6 +454,44 @@ export default function App() {
    * is not — the same trap the server-side totals exist to avoid. The server
    * caps a page at 500, so a long book is fetched in several passes.
    */
+  /**
+   * Opens a customer's statement, gathering their whole account first.
+   *
+   * The figures come from the query itself rather than from the rows gathered,
+   * so the sheet's "amount due" is the server's number and not arithmetic done
+   * over a list in the browser.
+   */
+  async function openStatement(customer: Customer) {
+    const q: LedgerQuery = {
+      customer_id: customer.id,
+      from: from || undefined,
+      to: to || undefined,
+      mode: "account",
+    };
+    try {
+      const head = demo
+        ? queryLedger(data, { ...q, limit: 1 })
+        : await api.listLedger({ ...q, limit: 1 });
+      const rows = await allMatching((limit, offset) => {
+        const paged = { ...q, limit, offset };
+        return demo
+          ? Promise.resolve(queryLedger(data, paged))
+          : api.listLedger(paged);
+      });
+      setStatement({
+        customer,
+        rows,
+        debits: Number(head.debits),
+        credits: Number(head.credits),
+        closing: Number(head.closing),
+        from,
+        to,
+      });
+      setModal("statement");
+    } catch (e) {
+      setError(errorText(e));
+    }
+  }
   async function allMatching<T>(
     fetchPage: (
       limit: number,
@@ -1013,6 +1064,7 @@ export default function App() {
                   }}
                   search={search}
                   setSearch={setSearch}
+                  onPrintStatement={openStatement}
                   customers={data.customers}
                   ledgerCustomer={ledgerCustomer}
                   setLedgerCustomer={setLedgerCustomer}
@@ -1313,6 +1365,49 @@ export default function App() {
               business={data.business}
               payments={[]}
               blank
+              mono={mono}
+            />
+          </div>
+        </ModalShell>
+      )}
+      {modal === "statement" && statement && (
+        <ModalShell
+          title={`Statement · ${statement.customer.name}`}
+          wide
+          onClose={closeModal}
+        >
+          <div className="print-toolbar">
+            <p>
+              Every entry on this customer's account
+              {statement.from || statement.to
+                ? " for the dates filtered"
+                : " to date"}
+              . Nothing is recorded by printing it.
+            </p>
+            <div className="button-row">
+              <InkToggle mono={mono} onChange={changeMono} />
+              <button
+                type="button"
+                className="btn primary"
+                onClick={() =>
+                  void print(`Statement for ${statement.customer.name}`)
+                }
+              >
+                <Printer size={17} />
+                Print / Save PDF
+              </button>
+            </div>
+          </div>
+          <div className="print-area">
+            <StatementPrint
+              business={data.business}
+              customer={statement.customer}
+              rows={statement.rows}
+              debits={statement.debits}
+              credits={statement.credits}
+              closing={statement.closing}
+              from={statement.from}
+              to={statement.to}
               mono={mono}
             />
           </div>

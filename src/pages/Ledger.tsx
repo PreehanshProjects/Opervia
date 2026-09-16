@@ -1,3 +1,4 @@
+import { Printer } from "lucide-react";
 import Empty from "../components/Empty";
 import OpeningPaymentForm from "../forms/OpeningPaymentForm";
 import FilterBar from "../components/FilterBar";
@@ -28,6 +29,7 @@ export default function Ledger({
   setRange,
   search,
   setSearch,
+  onPrintStatement,
   customers,
   ledgerCustomer,
   setLedgerCustomer,
@@ -49,6 +51,8 @@ export default function Ledger({
   setRange: (from: string, to: string) => void;
   search: string;
   setSearch: (s: string) => void;
+  /** Gathers the customer's whole account itself, then opens the print sheet. */
+  onPrintStatement: (c: Customer) => void;
   customers: Customer[];
   ledgerCustomer: string;
   setLedgerCustomer: (id: string) => void;
@@ -62,6 +66,7 @@ export default function Ledger({
 }) {
   const cash = mode === "cash";
   const filtered = !!(search || from || to);
+  const selected = customers.find((c) => c.id === ledgerCustomer);
   return (
     <>
       <div className="ledger-modes tabs" role="group" aria-label="Ledger view">
@@ -112,20 +117,35 @@ export default function Ledger({
             customer.
           </p>
         ) : (
-          <label>
-            View customer
-            <select
-              value={ledgerCustomer}
-              onChange={(e) => setLedgerCustomer(e.target.value)}
-            >
-              <option value="">All customers</option>
-              {customers.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
-          </label>
+          <div className="ledger-scope">
+            <label>
+              View customer
+              <select
+                value={ledgerCustomer}
+                onChange={(e) => setLedgerCustomer(e.target.value)}
+              >
+                <option value="">All customers</option>
+                {customers.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            {/* A statement is one customer's account on paper. There is no such
+                document for "all customers", so the action appears with the
+                account it would print. */}
+            {selected && (
+              <button
+                type="button"
+                className="btn secondary"
+                onClick={() => onPrintStatement(selected)}
+              >
+                <Printer size={15} />
+                Print statement
+              </button>
+            )}
+          </div>
         )}
       </div>
       {opening && openingOwed > 0 && (

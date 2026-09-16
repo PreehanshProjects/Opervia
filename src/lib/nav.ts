@@ -8,13 +8,9 @@ import {
 } from "lucide-react";
 
 export type Page =
-  | "Overview"
-  | "Invoices"
-  | "Ledger"
-  | "Customers"
-  | "Expenses"
-  | "Settings";
-export type Modal = "invoice" | "customer" | "expense" | "blank" | null;
+  "Overview" | "Invoices" | "Ledger" | "Customers" | "Expenses" | "Settings";
+export type Modal =
+  "invoice" | "customer" | "expense" | "blank" | "statement" | null;
 
 export const nav = [
   { name: "Overview", icon: LayoutDashboard },

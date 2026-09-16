@@ -64,4 +64,23 @@ test("A4 blank and completed invoices produce printable PDFs", async ({
     printBackground: true,
   });
   expect(pageCount(completed)).toBe(1);
+  await page.getByRole("button", { name: "Close dialog" }).click();
+  // A statement is the same paper carrying a customer's whole account, so it
+  // has to survive the same A4 test — including a fully filled-in business.
+  await page
+    .locator(".sidebar nav")
+    .getByRole("button", { name: /^Ledger/ })
+    .click();
+  await page
+    .getByRole("combobox", { name: "View customer" })
+    .selectOption({ index: 1 });
+  await page.getByRole("button", { name: "Print statement" }).click();
+  await expect(page.locator(".paper-title h2")).toHaveText("STATEMENT");
+  const statement = await page.pdf({
+    path: "tmp/pdfs/statement.pdf",
+    format: "A4",
+    preferCSSPageSize: true,
+    printBackground: true,
+  });
+  expect(pageCount(statement)).toBe(1);
 });

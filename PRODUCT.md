@@ -41,9 +41,11 @@ It does not try to be accounting software. It deliberately omits credit notes, r
 
 ## Capabilities and Constraints
 
-**Surfaces:** Overview, Invoices, Ledger, Customers, Expenses, Settings — plus the Auth surface and the print surface (`InvoicePrint.tsx`). Modal-based creation for invoice, customer, expense, and blank sheet.
+**Surfaces:** Overview, Invoices, Ledger, Customers, Expenses, Settings — plus the Auth surface and two print surfaces (`InvoicePrint.tsx`, `StatementPrint.tsx`). Modal-based creation for invoice, customer, expense, blank sheet, and customer statement.
 
-**Confirmed capabilities:** customer records; invoices with sections, fractional quantities, units, notes, tax rate, optional deposit; partial payments with history; running receivables balance with customer filtering; a cash book reading of the same ledger; CSV export; expense recording; invoice voiding; blank printable sheet; editable business and bank details that snapshot onto issued invoices.
+`StatementPrint` deliberately reuses the invoice sheet's own classes (`invoice-paper`, `paper-*`) rather than growing a second print stylesheet: everything learned about printing this product — A4 sizing, the repeating table head, page breaks, mono mode, killing the animations that once printed the modal's opening frame — keys off those names. A statement is not a financial record but a statement of one as it stands today, so it takes the *current* business details rather than a snapshot, as the blank sheet does.
+
+**Confirmed capabilities:** customer records; invoices with sections, fractional quantities, units, notes, tax rate, optional deposit; partial payments with history; running receivables balance with customer filtering; a cash book reading of the same ledger; a printable per-customer statement of account; CSV export; expense recording; invoice voiding; blank printable sheet; editable business and bank details that snapshot onto issued invoices.
 
 **Durable constraints (non-negotiable):**
 

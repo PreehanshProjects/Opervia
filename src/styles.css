@@ -1037,6 +1037,14 @@ nav button.active svg {
   margin-top: 3px;
   font-variant-numeric: tabular-nums;
 }
+/* The customer picker and the statement it would print, kept together. */
+.ledger-scope {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 12px;
+  min-width: 220px;
+}
 .ledger-summary label {
   min-width: 220px;
 }
@@ -1512,6 +1520,30 @@ nav button.active svg {
 .paper-table small {
   color: #98a08d;
   font-size: 9px;
+}
+/* The statement leads with a date and a description rather than a long line
+   item, so the first two columns swap roles: a narrow date, wide details, and
+   the three money columns keep the invoice sheet's right alignment. */
+.statement-table th:first-child {
+  width: 14%;
+}
+.statement-table th:nth-child(2),
+.statement-table td:nth-child(2) {
+  text-align: left;
+  width: 44%;
+}
+/* A statement is not signed, so the foot carries a note instead of two dashed
+   name lines. It keeps .paper-signatures for the `margin-top: auto` that holds
+   the footer at the foot of the last page. */
+.paper-signatures.statement-note {
+  margin-top: 60px;
+}
+/* Outranks `.paper-signatures span`, which sets a dashed name line. */
+.paper-signatures.statement-note span {
+  border-top: 1px solid #e7ebdf;
+  min-width: 0;
+  width: 100%;
+  text-align: left;
 }
 .paper-bottom {
   display: grid;
@@ -2137,7 +2169,8 @@ nav button.active svg {
     flex-direction: column;
     padding: 22px;
   }
-  .ledger-summary label {
+  .ledger-summary label,
+  .ledger-scope {
     width: 100%;
   }
   .ledger-summary .ledger-scope-note {
