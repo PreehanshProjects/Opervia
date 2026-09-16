@@ -6,11 +6,17 @@ import {
   dateLabel,
   money,
   type Customer,
+  type LedgerMode,
   type LedgerRow,
   type OpeningBalance,
   type Page,
   type Payment,
 } from "../domain";
+
+const MODES: { id: LedgerMode; label: string }[] = [
+  { id: "account", label: "Customer account" },
+  { id: "cash", label: "Cash book" },
+];
 
 export default function Ledger({
   page,
@@ -24,6 +30,8 @@ export default function Ledger({
   customers,
   ledgerCustomer,
   setLedgerCustomer,
+  mode,
+  setMode,
   opening,
   openingOwed,
   busy,
@@ -41,34 +49,63 @@ export default function Ledger({
   customers: Customer[];
   ledgerCustomer: string;
   setLedgerCustomer: (id: string) => void;
+  mode: LedgerMode;
+  setMode: (m: LedgerMode) => void;
   /** Only set when a single customer is selected and they owe from before. */
   opening?: OpeningBalance;
   openingOwed: number;
   busy: boolean;
   onRecordOpeningPayment: (p: Payment) => Promise<boolean>;
 }) {
+  const cash = mode === "cash";
   return (
     <>
+      <div className="ledger-modes tabs" role="group" aria-label="Ledger view">
+        {MODES.map((m) => (
+          <button
+            type="button"
+            key={m.id}
+            className={mode === m.id ? "active" : ""}
+            aria-pressed={mode === m.id}
+            onClick={() => setMode(m.id)}
+          >
+            {m.label}
+          </button>
+        ))}
+      </div>
       <div className="ledger-summary">
         <div>
-          <span>CUSTOMER BALANCE</span>
+          <span>{cash ? "NET CASH MOVEMENT" : "CUSTOMER BALANCE"}</span>
           <h2>{money(page?.closing ?? 0)}</h2>
-          <p>Invoices less payments · expenses shown separately</p>
+          <p>
+            {cash
+              ? "Payments received less expenses · this is not profit"
+              : "Invoices less payments · expenses are in the cash book"}
+          </p>
         </div>
-        <label>
-          View customer
-          <select
-            value={ledgerCustomer}
-            onChange={(e) => setLedgerCustomer(e.target.value)}
-          >
-            <option value="">All customers</option>
-            {customers.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
-        </label>
+        {cash ? (
+          /* Expenses are not bought per customer, so there is nothing to filter
+             by here. Saying so beats a disabled control the user has to poke. */
+          <p className="ledger-scope-note">
+            The whole business. Expenses are bought in bulk and belong to no one
+            customer.
+          </p>
+        ) : (
+          <label>
+            View customer
+            <select
+              value={ledgerCustomer}
+              onChange={(e) => setLedgerCustomer(e.target.value)}
+            >
+              <option value="">All customers</option>
+              {customers.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
       </div>
       {opening && openingOwed > 0 && (
         <OpeningPaymentForm
@@ -87,7 +124,7 @@ export default function Ledger({
         <FilterBar
           search=""
           setSearch={() => {}}
-          searchLabel="Search the ledger"
+          searchLabel={cash ? "Search the cash book" : "Search the ledger"}
           from={from}
           to={to}
           setRange={setRange}
@@ -101,9 +138,9 @@ export default function Ledger({
                 <tr>
                   <th>DATE</th>
                   <th>ENTRY</th>
-                  <th>DEBIT</th>
-                  <th>CREDIT</th>
-                  <th>RUNNING BALANCE</th>
+                  <th>{cash ? "MONEY OUT" : "DEBIT"}</th>
+                  <th>{cash ? "MONEY IN" : "CREDIT"}</th>
+                  <th>{cash ? "RUNNING NET CASH" : "RUNNING BALANCE"}</th>
                 </tr>
               </thead>
               <tbody>
@@ -132,7 +169,9 @@ export default function Ledger({
             detail={
               from || to
                 ? "Try a wider date range, or clear the dates to see everything."
-                : "Invoices and payments will appear here automatically."
+                : cash
+                  ? "Payments received and expenses recorded will appear here automatically."
+                  : "Invoices and payments will appear here automatically."
             }
           />
         )}

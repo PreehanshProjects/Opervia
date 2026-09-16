@@ -108,6 +108,35 @@ test("customer, fractional invoice, settlement, ledger and print workflow", asyn
   const download = page.waitForEvent("download");
   await page.getByRole("button", { name: "Export CSV" }).click();
   expect((await download).suggestedFilename()).toBe("opervia-ledger.csv");
+  // The cash book is the other reading of the same book: money that actually
+  // moved. The demo's own "Delivery fuel" expense proves the difference —
+  // absent from a receivables ledger, present here.
+  await expect(page.getByText("Delivery fuel")).toHaveCount(0);
+  await page.getByRole("button", { name: "Cash book" }).click();
+  await expect(page.locator(".ledger-summary span")).toHaveText(
+    "NET CASH MOVEMENT",
+  );
+  // Expenses belong to no customer, so there is nothing to scope the book by.
+  await expect(
+    page.getByRole("combobox", { name: "View customer" }),
+  ).toHaveCount(0);
+  const expenseRow = page.locator("tbody tr", { hasText: "Delivery fuel" });
+  await expect(expenseRow).toHaveCount(1);
+  // The category is the entry, the description its second line — as on Expenses.
+  await expect(expenseRow).toContainText("Transport");
+  await page.screenshot({
+    path: `test-results/${testInfo.project.name}-cash-book.png`,
+    fullPage: true,
+  });
+  const cashCsv = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Export CSV" }).click();
+  expect((await cashCsv).suggestedFilename()).toBe("opervia-cash-book.csv");
+  // And back: the expense leaves again, and the customer filter returns.
+  await page.getByRole("button", { name: "Customer account" }).click();
+  await expect(page.getByText("Delivery fuel")).toHaveCount(0);
+  await expect(
+    page.getByRole("combobox", { name: "View customer" }),
+  ).toBeVisible();
   await nav("Invoices");
   await page.getByRole("button", { name: "Blank invoice" }).click();
   await expect(dialog.locator(".paper-table tbody tr")).toHaveCount(14);

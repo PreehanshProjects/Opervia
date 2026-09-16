@@ -988,6 +988,11 @@ nav button.active svg {
   max-width: 340px;
   margin-bottom: 23px;
 }
+/* Two readings of the same book: what customers owe, and where the money went.
+   Sits above the summary because it changes what that figure means. */
+.ledger-modes {
+  margin-bottom: 14px;
+}
 .ledger-summary {
   display: flex;
   align-items: center;
@@ -1015,6 +1020,12 @@ nav button.active svg {
 }
 .ledger-summary label {
   min-width: 220px;
+}
+/* Stands where the customer picker does, so the card does not jump on toggle. */
+.ledger-summary .ledger-scope-note {
+  max-width: 220px;
+  margin-top: 0;
+  text-align: right;
 }
 .customer-grid {
   display: grid;
@@ -2109,6 +2120,10 @@ nav button.active svg {
   }
   .ledger-summary label {
     width: 100%;
+  }
+  .ledger-summary .ledger-scope-note {
+    max-width: none;
+    text-align: left;
   }
   .customer-grid {
     gap: 14px;

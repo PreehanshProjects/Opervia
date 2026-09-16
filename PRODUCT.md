@@ -43,7 +43,7 @@ It does not try to be accounting software. It deliberately omits credit notes, r
 
 **Surfaces:** Overview, Invoices, Ledger, Customers, Expenses, Settings — plus the Auth surface and the print surface (`InvoicePrint.tsx`). Modal-based creation for invoice, customer, expense, and blank sheet.
 
-**Confirmed capabilities:** customer records; invoices with sections, fractional quantities, units, notes, tax rate, optional deposit; partial payments with history; running receivables balance with customer filtering; CSV export; expense recording; invoice voiding; blank printable sheet; editable business and bank details that snapshot onto issued invoices.
+**Confirmed capabilities:** customer records; invoices with sections, fractional quantities, units, notes, tax rate, optional deposit; partial payments with history; running receivables balance with customer filtering; a cash book reading of the same ledger; CSV export; expense recording; invoice voiding; blank printable sheet; editable business and bank details that snapshot onto issued invoices.
 
 **Durable constraints (non-negotiable):**
 
@@ -54,7 +54,10 @@ It does not try to be accounting software. It deliberately omits credit notes, r
    This is enforced in PostgreSQL, not just the UI: the `own_invoices` and `own_payments` policies grant `select` only, so no browser role can delete a financial record. **Reaffirmed by the owner on 14 September 2026** when asked directly whether invoice deletion should be added: keep void-only. Do not propose or implement a migration granting DELETE on these tables.
 
    What *can* be removed, and why: **expenses** are the owner’s own note-to-self, hold nothing a customer relies on, and are editable and deletable (`own_expenses` is `FOR ALL`). A **customer** can be deleted only while they have no invoices, no opening balance and no payments — after that they are part of the record. Customers and expenses use the same confirmation dialog; only permanent customer deletion requires typing the name back.
-4. **"Net cash movement" is not profit.** The Overview figure is received payments minus recorded expenses. No P&L framing, no "profit" label, no implication of an accounting result.
+4. **"Net cash movement" is not profit.** The Overview figure, and the Cash book closing figure, are received payments minus recorded expenses. No P&L framing, no "profit" label, no implication of an accounting result.
+5. **Expenses belong to no customer.** Stock is bought in bulk — a crate of vegetables, a tray of cakes — and sold on to whoever buys it, so attributing an expense to a customer is work the owner cannot honestly do. **Confirmed by the owner on 16 September 2026.** Do not add a customer field to expenses, and do not let expenses reach a receivables balance.
+
+   The Ledger therefore serves two readings, chosen by `mode` in `list_ledger`: `account` (the default — openings and invoices as debits, payments as credits, balance = owed, filterable by customer) and `cash` (payments in, expenses out, balance = net cash movement, always the whole business). Invoices are absent from the cash book because an unpaid invoice is not cash, and the customer filter is dropped there because keeping it would retain the credits and silently discard every debit.
 
 **Data loading:** transactions are queried a page at a time on the server
 (`list_invoices`, `list_expenses`, `list_ledger`), with filtering, sorting,

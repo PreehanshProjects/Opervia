@@ -41,6 +41,7 @@ import {
   summarise,
   type ExpenseQuery,
   type InvoiceQuery,
+  type LedgerMode,
   type LedgerQuery,
   type Summary,
   totals,
@@ -146,6 +147,7 @@ export default function App() {
   const [expenseOffset, setExpenseOffset] = useState(0);
   const [ledgerOffset, setLedgerOffset] = useState(0);
   const [ledgerCustomer, setLedgerCustomer] = useState("");
+  const [ledgerMode, setLedgerMode] = useState<LedgerMode>("account");
   const [customerEdit, setCustomerEdit] = useState<Customer | undefined>();
   const [expenseEdit, setExpenseEdit] = useState<Expense | undefined>();
   const [paymentOpen, setPaymentOpen] = useState(false);
@@ -252,6 +254,7 @@ export default function App() {
     from,
     to,
     ledgerCustomer,
+    ledgerMode,
   ]);
   // Theme: apply on change, and follow the device while set to "system".
   useEffect(() => {
@@ -695,11 +698,13 @@ export default function App() {
     page === "Expenses",
   );
   const ledgerQuery: LedgerQuery = {
-    customer_id: ledgerCustomer || undefined,
+    // The cash book covers the whole business; see LedgerMode.
+    customer_id: (ledgerMode === "account" && ledgerCustomer) || undefined,
     from: from || undefined,
     to: to || undefined,
     limit: LEDGER_PAGE,
     offset: ledgerOffset,
+    mode: ledgerMode,
   };
   const ledgerPage = useQuery(
     () =>
@@ -798,7 +803,9 @@ export default function App() {
                 {page === "Overview"
                   ? "A clearer picture."
                   : page === "Ledger"
-                    ? "Your customer ledger."
+                    ? ledgerMode === "cash"
+                      ? "Where your money went."
+                      : "Your customer ledger."
                     : page === "Settings"
                       ? "Make yourself at home."
                       : `${page}.`}
@@ -810,7 +817,9 @@ export default function App() {
                       "A little less paperwork. A little more peace of mind.",
                     Invoices: "Create, collect, and keep everything in order.",
                     Ledger:
-                      "Every invoice and payment, with a running balance.",
+                      ledgerMode === "cash"
+                        ? "Every payment in and every expense out, in one line."
+                        : "Every invoice and payment, with a running balance.",
                     Customers:
                       "Good relationships start with the little details.",
                     Expenses: "Keep track of the cost of doing business.",
@@ -854,26 +863,33 @@ export default function App() {
                 <button
                   className="btn secondary"
                   onClick={() =>
-                    void exportCsv("opervia-ledger.csv", [
+                    void exportCsv(
+                      ledgerMode === "cash"
+                        ? "opervia-cash-book.csv"
+                        : "opervia-ledger.csv",
                       [
-                        "Date",
-                        "Reference",
-                        "Details",
-                        "Type",
-                        "Debit MUR",
-                        "Credit MUR",
-                        "Balance MUR",
+                        [
+                          "Date",
+                          "Reference",
+                          "Details",
+                          "Type",
+                          "Debit MUR",
+                          "Credit MUR",
+                          ledgerMode === "cash"
+                            ? "Net cash MUR"
+                            : "Balance MUR",
+                        ],
+                        ...(ledgerPage.data?.rows ?? []).map((r) => [
+                          r.date,
+                          r.label,
+                          r.detail,
+                          r.type,
+                          r.debit,
+                          r.credit,
+                          r.balance,
+                        ]),
                       ],
-                      ...(ledgerPage.data?.rows ?? []).map((r) => [
-                        r.date,
-                        r.label,
-                        r.detail,
-                        r.type,
-                        r.debit,
-                        r.credit,
-                        r.balance,
-                      ]),
-                    ])
+                    )
                   }
                 >
                   <Download size={16} />
@@ -967,13 +983,15 @@ export default function App() {
                   customers={data.customers}
                   ledgerCustomer={ledgerCustomer}
                   setLedgerCustomer={setLedgerCustomer}
+                  mode={ledgerMode}
+                  setMode={setLedgerMode}
                   opening={
-                    ledgerCustomer
+                    ledgerMode === "account" && ledgerCustomer
                       ? openingFor(ledgerCustomer, data)
                       : undefined
                   }
                   openingOwed={
-                    ledgerCustomer
+                    ledgerMode === "account" && ledgerCustomer
                       ? openingOutstanding(ledgerCustomer, data)
                       : 0
                   }

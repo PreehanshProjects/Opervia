@@ -77,6 +77,25 @@ describe("invoice calculations", () => {
     data.invoices[2].voided = true;
     expect(ledger(data).some((r) => r.id === data.invoices[2].id)).toBe(false);
   });
+  it("puts expenses in the cash book, as money out of the whole business", () => {
+    const data = makeDemo();
+    const rows = ledger(data, "", "cash");
+    // Money in less money out. Invoices are absent: unpaid paper is not cash.
+    const received = data.payments.reduce((s, p) => s + p.amount, 0);
+    const spent = data.expenses.reduce((s, e) => s + e.amount, 0);
+    expect(rows.at(-1)?.balance).toBeCloseTo(received - spent, 2);
+    expect(rows.some((r) => r.type === "Invoice")).toBe(false);
+    expect(rows.some((r) => r.type === "Opening")).toBe(false);
+    expect(rows.filter((r) => r.type === "Expense")).toHaveLength(
+      data.expenses.length,
+    );
+    // An expense is money gone, so it lowers the balance a debit would raise.
+    const first = rows.findIndex((r) => r.type === "Expense");
+    expect(rows[first].balance).toBeLessThan(rows[first - 1]?.balance ?? 0);
+    // Narrowing a cash book to one customer would drop every debit, so the
+    // scope is ignored rather than silently honoured.
+    expect(ledger(data, data.customers[1].id, "cash")).toEqual(rows);
+  });
   it("escapes CSV cells and prevents spreadsheet formula injection", () => {
     expect(csvCell('=HYPERLINK("evil")')).toBe('"\'=HYPERLINK(""evil"")"');
     expect(csvCell("a,b")).toBe('"a,b"');
@@ -287,6 +306,41 @@ describe("queries (the in-memory mirror of the SQL functions)", () => {
     expect(second.rows[0].balance).toBe(400);
     expect(second.total).toBe(6);
     expect(whole.closing).toBe(600);
+  });
+
+  it("carries the cash book balance across pages and date filters", () => {
+    const d = build();
+    // Six payments of 50 in, three expenses of 20 out.
+    d.payments = d.invoices.slice(0, 6).map((i, n) => ({
+      id: `pay${n}`,
+      invoice_id: i.id,
+      date: i.date,
+      amount: 50,
+      method: "Cash",
+      reference: "",
+    }));
+    d.expenses = [0, 1, 2].map((n) => ({
+      id: `exp${n}`,
+      date: `2026-03-0${n + 1}`,
+      description: `Vegetables ${n}`,
+      note: "",
+      category: "Stock purchases",
+      amount: 20,
+    }));
+    const whole = queryLedger(d, { mode: "cash", limit: 500 });
+    expect(whole.total).toBe(9);
+    expect(whole.closing).toBe(6 * 50 - 3 * 20);
+    const second = queryLedger(d, { mode: "cash", limit: 4, offset: 4 });
+    expect(second.rows[0].balance).toBe(whole.rows[4].balance);
+    // A date range restarts the balance from what the filtered view shows.
+    const march = queryLedger(d, {
+      mode: "cash",
+      from: "2026-03-02",
+      to: "2026-03-02",
+      limit: 500,
+    });
+    expect(march.rows.map((r) => r.type)).toEqual(["Payment", "Expense"]);
+    expect(march.closing).toBe(30);
   });
 
   it("summarises the whole workspace, not the visible page", () => {

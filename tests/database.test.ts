@@ -50,6 +50,7 @@ beforeAll(async () => {
     "202609160001_edit_and_delete_invoices.sql",
     "202609160002_expense_details_and_grants.sql",
     "202609160003_delete_customer.sql",
+    "202609160004_cash_book.sql",
   ])
     await db.exec(
       readFileSync(
@@ -614,10 +615,60 @@ describe("server-side queries", () => {
     expect(typeof s.expenses).toBe("number");
   });
 
+  it("reads the same book as a cash book when asked", async () => {
+    await asUser(userA);
+    // One invoice settled, and two crates of vegetables that belong to no
+    // customer — exactly the shape the cash book exists for.
+    await rpc("record_payment", {
+      id: "30000000-0000-4000-8000-000000000090",
+      invoice_id: ids(1),
+      date: "2026-03-01",
+      amount: 100,
+      method: "Cash",
+      reference: "",
+    });
+    for (const [n, day] of [
+      [0, "02"],
+      [1, "03"],
+    ] as const)
+      await db.query(
+        "insert into public.expenses(owner_id,date,description,category,amount) values($1,$2,$3,$4,$5)",
+        [userA, `2026-03-${day}`, `Vegetables ${n}`, "Stock purchases", 30],
+      );
+
+    const cash = await call("list_ledger", { mode: "cash", limit: 500 });
+    const types = cash.rows.map((r) => r.type);
+    // Money that moved, and only that: an unpaid invoice is not cash.
+    expect(types).not.toContain("Invoice");
+    expect(types).not.toContain("Opening");
+    expect(types.filter((t) => t === "Expense").length).toBeGreaterThanOrEqual(
+      2,
+    );
+    // Money in raises the balance, money out lowers it.
+    const paid = cash.rows.findIndex((r) => r.type === "Payment");
+    const spent = cash.rows.findIndex((r) => r.type === "Expense");
+    expect(Number(cash.rows[spent].balance)).toBeLessThan(
+      Number(cash.rows[paid].balance),
+    );
+    // A cash book narrowed to one customer would drop every debit, so the
+    // scope is ignored rather than silently honoured.
+    const scoped = await call("list_ledger", {
+      mode: "cash",
+      customer_id: qCust,
+      limit: 500,
+    });
+    expect(scoped.total).toBe(cash.total);
+    expect(scoped.closing).toBe(cash.closing);
+    // And the default reading is untouched: no expenses in receivables.
+    const account = await call("list_ledger", { limit: 500 });
+    expect(account.rows.map((r) => r.type)).not.toContain("Expense");
+  });
+
   it("never returns another account's records", async () => {
     await asUser(userB);
     expect((await call("list_invoices", { customer_id: qCust })).total).toBe(0);
     expect((await call("list_ledger", { customer_id: qCust })).total).toBe(0);
+    expect((await call("list_ledger", { mode: "cash" })).total).toBe(0);
     expect((await call("list_expenses")).total).toBe(0);
   });
 });

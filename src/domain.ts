@@ -253,6 +253,18 @@ export type LedgerRow = {
   credit: number;
   balance: number;
 };
+/**
+ * The two readings of the same book.
+ *
+ * "account" is the receivables ledger: what each customer already owed, what
+ * they were billed, and what they have paid. The balance is what is owed to the
+ * business, so a debit raises it.
+ *
+ * "cash" is the cash book: only money that actually moved. Payments received
+ * are credits, expenses are debits, and the balance is net cash movement — not
+ * profit. Invoices are absent because an unpaid invoice is not cash.
+ */
+export type LedgerMode = "account" | "cash";
 /** The opening balance recorded for a customer, if any. */
 export const openingFor = (customerId: string, data: Data) =>
   data.openings.find((o) => o.customer_id === customerId);
@@ -282,38 +294,71 @@ export const totalOpeningOutstanding = (data: Data) =>
       new Decimal(0),
     ),
   );
-export function ledger(data: Data, customerId = ""): LedgerRow[] {
+/**
+ * Runs the balance down a sorted set of entries.
+ *
+ * The columns mean the same thing in both modes, but the balance does not: a
+ * debit is money owed *to* you in the account ledger and money *gone* in the
+ * cash book, so the sign flips. Shared with queryLedger, which has to re-run
+ * the balance whenever a date filter cuts the earlier rows away.
+ */
+const runBalance = (
+  rows: Omit<LedgerRow, "balance">[],
+  mode: LedgerMode,
+): LedgerRow[] => {
+  let running = new Decimal(0);
+  return rows.map((r) => {
+    running =
+      mode === "cash"
+        ? running.plus(r.credit).minus(r.debit)
+        : running.plus(r.debit).minus(r.credit);
+    return { ...r, balance: roundMoney(running) };
+  });
+};
+export function ledger(
+  data: Data,
+  customerId = "",
+  mode: LedgerMode = "account",
+): LedgerRow[] {
+  // Expenses are bought in bulk and sold on to whoever buys them, so they
+  // belong to no customer. A cash book narrowed to one customer would keep the
+  // credits and silently drop the debits, so the cash book is always the whole
+  // business.
+  const scope = mode === "cash" ? "" : customerId;
   const invoices = data.invoices.filter(
-    (i) => !i.voided && (!customerId || i.customer_id === customerId),
+    (i) => !i.voided && (!scope || i.customer_id === scope),
   );
   const customerName = (id: string) =>
     data.customers.find((c) => c.id === id)?.name ?? "Customer";
-  // Opening balances are debits that predate every Opervia invoice.
   const openings = data.openings.filter(
-    (o) => !customerId || o.customer_id === customerId,
+    (o) => !scope || o.customer_id === scope,
   );
-  const rows: Omit<LedgerRow, "balance">[] = openings.map((o) => ({
-    id: `opening-${o.customer_id}`,
-    date: o.date,
-    label: "Opening balance",
-    detail: o.note
-      ? `${customerName(o.customer_id)} · ${o.note}`
-      : `${customerName(o.customer_id)} · owed before Opervia`,
-    type: "Opening" as const,
-    debit: o.amount,
-    credit: 0,
-  }));
-  rows.push(
-    ...invoices.map((i) => ({
-      id: i.id,
-      date: i.date,
-      label: i.number,
-      detail: i.customer.name,
-      type: "Invoice" as const,
-      debit: i.total,
-      credit: 0,
-    })),
-  );
+  const rows: Omit<LedgerRow, "balance">[] = [];
+  if (mode === "account") {
+    // Opening balances are debits that predate every Opervia invoice.
+    rows.push(
+      ...openings.map((o) => ({
+        id: `opening-${o.customer_id}`,
+        date: o.date,
+        label: "Opening balance",
+        detail: o.note
+          ? `${customerName(o.customer_id)} · ${o.note}`
+          : `${customerName(o.customer_id)} · owed before Opervia`,
+        type: "Opening" as const,
+        debit: o.amount,
+        credit: 0,
+      })),
+      ...invoices.map((i) => ({
+        id: i.id,
+        date: i.date,
+        label: i.number,
+        detail: i.customer.name,
+        type: "Invoice" as const,
+        debit: i.total,
+        credit: 0,
+      })),
+    );
+  }
   // Payments settling an opening balance carry a customer, not an invoice.
   rows.push(
     ...data.payments
@@ -346,22 +391,34 @@ export function ledger(data: Data, customerId = ""): LedgerRow[] {
         credit: p.amount,
       })),
   );
-  // Expenses belong to the cash summary, never to a customer receivables ledger.
+  // Expenses are money out of the business, owed to nobody, so they appear in
+  // the cash book only — never in a customer's receivables ledger.
+  if (mode === "cash") {
+    rows.push(
+      ...data.expenses.map((e) => ({
+        id: e.id,
+        date: e.date,
+        label: e.category,
+        detail: e.note ? `${e.description} · ${e.note}` : e.description,
+        type: "Expense" as const,
+        debit: e.amount,
+        credit: 0,
+      })),
+    );
+  }
   // Same-day ordering is explicit so the running balance never reshuffles:
-  // what was already owed, then what was billed, then what was received.
+  // what was already owed, then what was billed, then what was received, then
+  // what was spent.
   const rank = { Opening: 0, Invoice: 1, Payment: 2, Expense: 3 } as const;
-  let running = new Decimal(0);
-  return rows
-    .sort(
+  return runBalance(
+    rows.sort(
       (a, b) =>
         a.date.localeCompare(b.date) ||
         rank[a.type] - rank[b.type] ||
         a.id.localeCompare(b.id),
-    )
-    .map((r) => {
-      running = running.plus(r.debit).minus(r.credit);
-      return { ...r, balance: roundMoney(running) };
-    });
+    ),
+    mode,
+  );
 }
 export function csvCell(value: unknown) {
   let s = String(value ?? "");
@@ -405,6 +462,8 @@ export type LedgerQuery = {
   to?: string;
   limit?: number;
   offset?: number;
+  /** Defaults to the receivables ledger. See LedgerMode. */
+  mode?: LedgerMode;
 };
 export type Page<T> = { rows: T[]; total: number };
 
@@ -482,21 +541,13 @@ export function queryLedger(
   data: Data,
   q: LedgerQuery = {},
 ): Page<LedgerRow> & { closing: number } {
-  const all = ledger(data, q.customer_id ?? "").filter((r) =>
+  const mode = q.mode ?? "account";
+  const all = ledger(data, q.customer_id ?? "", mode).filter((r) =>
     inRange(r.date, q.from, q.to),
   );
   // Re-run the balance when a date range cut the earlier rows away, so the
   // opening figure reflects what the filtered view actually shows.
-  const rows =
-    q.from || q.to
-      ? (() => {
-          let running = new Decimal(0);
-          return all.map((r) => {
-            running = running.plus(r.debit).minus(r.credit);
-            return { ...r, balance: roundMoney(running) };
-          });
-        })()
-      : all;
+  const rows = q.from || q.to ? runBalance(all, mode) : all;
   return {
     ...slice(rows, q.limit ?? 50, q.offset),
     closing: rows.at(-1)?.balance ?? 0,

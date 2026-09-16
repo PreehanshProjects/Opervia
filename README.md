@@ -72,7 +72,7 @@ npm run test:e2e
 
 `npm test` checks decimal arithmetic and runs the actual SQL migration in PGlite (embedded PostgreSQL), testing two-account isolation, anonymous denial, unauthorized writes, server totals, deposit rollback, payment limits, idempotency, snapshot preservation, and void rules. PGlite tests use a small `auth.uid()` fixture; they do not substitute for testing Supabase Auth or concurrent sessions against the hosted project.
 
-Playwright checks desktop and mobile demo workflows: customer creation, fractional invoice with tax/deposit, settlement, customer ledger, CSV download, blank sheet, printing CSS, search, expense recording, voiding, and demo exit. Screenshots are written to `test-results/`.
+Playwright checks desktop and mobile demo workflows: customer creation, fractional invoice with tax/deposit, settlement, customer ledger, the cash book reading of it, CSV download, blank sheet, printing CSS, search, expense recording, voiding, and demo exit. Screenshots are written to `test-results/`.
 
 ## Android app (Capacitor)
 
