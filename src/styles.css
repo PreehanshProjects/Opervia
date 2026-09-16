@@ -1781,7 +1781,7 @@ nav button.active svg {
 .nav-scrim {
   display: none;
 }
-@media (min-width: 1500px) {
+@media screen and (min-width: 1500px) {
   .content {
     padding-top: 45px;
   }
@@ -1796,7 +1796,7 @@ nav button.active svg {
     grid-template-columns: minmax(0, 1fr) 300px;
   }
 }
-@media (max-width: 1200px) {
+@media screen and (max-width: 1200px) {
   .sidebar {
     width: 215px;
     padding: 28px 17px 15px;
@@ -1862,7 +1862,7 @@ nav button.active svg {
     grid-template-columns: 1fr 250px;
   }
 }
-@media (max-width: 1000px) {
+@media screen and (max-width: 1000px) {
   .overview-grid {
     grid-template-columns: 1fr;
   }
@@ -1926,7 +1926,7 @@ nav button.active svg {
     font-size: 44px;
   }
 }
-@media (max-width: 760px) {
+@media screen and (max-width: 760px) {
   .sidebar {
     display: none;
   }
@@ -2151,7 +2151,7 @@ nav button.active svg {
     opacity: 0;
   }
 }
-@media (max-width: 760px) {
+@media screen and (max-width: 760px) {
   .modal-header h2 {
     font-size: 16px;
   }
@@ -2452,6 +2452,23 @@ nav button.active svg {
   .blank-paper .paper-footer {
     margin-top: 14px;
   }
+  /* Nothing animates onto paper. Chrome builds the print document as a fresh
+     render, which restarts every CSS animation from its first frame — so an
+     element that animates in from `opacity: 0` is captured while it is still
+     invisible and prints as nothing at all. That is how the whole invoice
+     could come out as blank sheets: the modal carried the phone bottom-sheet
+     entrance, and the printed page kept its opening frame forever. */
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+  }
+  .modal,
+  .modal-backdrop,
+  .invoice-paper {
+    opacity: 1 !important;
+    transform: none !important;
+  }
   html,
   body,
   #root {
@@ -2508,9 +2525,8 @@ nav button.active svg {
     width: 100%;
     min-width: 0;
     max-width: none;
-    /* Paper is never scaled or pulled about, whatever the screen rules above
-       decided the preview should do to fit a phone. */
-    transform: none;
+    /* Paper is never pulled about by what the preview does to fit a phone;
+       the transform is reset with the modal's above. */
     margin-bottom: 0;
     /* Fill the sheet, so a short invoice does not leave its signature lines
        stranded halfway down the page with blank paper beneath them. */
@@ -2781,7 +2797,7 @@ nav button.active svg {
 /* Desktop keeps the sidebar exactly as it was. This is deliberately the last
    rule in the file: these four carry a real display value in their base rules,
    so only a later declaration can hide them above the mobile breakpoint. */
-@media (min-width: 761px) {
+@media screen and (min-width: 761px) {
   .bottom-nav,
   .fab,
   .topbar-mark,
@@ -3083,7 +3099,7 @@ nav button.active svg {
 /* Below 760px the topbar has no room for it: three positions plus Settings,
    sign-out and the avatar overflow 390px and force the page to scale down.
    The full switch lives in Settings, one tap away. */
-@media (max-width: 760px) {
+@media screen and (max-width: 760px) {
   .theme-switch.compact {
     display: none;
   }
@@ -3190,7 +3206,7 @@ nav button.active svg {
   gap: 9px;
 }
 
-@media (max-width: 760px) {
+@media screen and (max-width: 760px) {
   .filter-bar {
     padding: 14px 16px;
     gap: 10px;
@@ -3254,7 +3270,7 @@ nav button.active svg {
   font-weight: 600;
   color: var(--demo);
 }
-@media (max-width: 760px) {
+@media screen and (max-width: 760px) {
   .save-bar.unsaved {
     margin: 0 -20px -20px;
     padding: 14px 20px calc(14px + env(safe-area-inset-bottom));
