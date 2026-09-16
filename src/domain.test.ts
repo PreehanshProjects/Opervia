@@ -343,6 +343,29 @@ describe("queries (the in-memory mirror of the SQL functions)", () => {
     expect(march.closing).toBe(30);
   });
 
+  it("searches the ledger and reports totals for the whole match", () => {
+    const d = build();
+    const whole = queryLedger(d, { customer_id: "c1", limit: 500 });
+    expect(whole.debits).toBe(600);
+    expect(whole.credits).toBe(0);
+    // A page must not shrink the figures that describe the set.
+    const page = queryLedger(d, { customer_id: "c1", limit: 2 });
+    expect(page.rows).toHaveLength(2);
+    expect(page.debits).toBe(whole.debits);
+    expect(page.total).toBe(whole.total);
+    expect(page.closing).toBe(whole.closing);
+    // Search matches the entry or the line beneath it, and re-runs the balance
+    // over what is left so the closing figure describes the visible set.
+    const one = queryLedger(d, { search: whole.rows[0].label, limit: 500 });
+    expect(one.total).toBe(1);
+    expect(one.closing).toBe(100);
+    // The customer name lives on the second line of an invoice entry.
+    expect(queryLedger(d, { search: "alpha", limit: 500 }).total).toBe(6);
+    expect(
+      queryLedger(d, { search: "nothing here", limit: 500 }),
+    ).toMatchObject({ total: 0, closing: 0, debits: 0, credits: 0 });
+  });
+
   it("summarises the whole workspace, not the visible page", () => {
     const d = build();
     const s = summarise(d);

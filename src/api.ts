@@ -11,8 +11,8 @@ import type {
   InvoiceInput,
   InvoiceRow,
   InvoiceQuery,
+  LedgerPage,
   LedgerQuery,
-  LedgerRow,
   Page,
   Payment,
   Summary,
@@ -110,7 +110,7 @@ export const listExpenses = (q: ExpenseQuery) =>
   query<Page<Expense> & { sum: number }>("list_expenses", q);
 /** One page of the ledger. The running balance spans the whole filtered set. */
 export const listLedger = (q: LedgerQuery) =>
-  query<Page<LedgerRow> & { closing: number }>("list_ledger", q);
+  query<LedgerPage>("list_ledger", q);
 /** Outstanding per customer, so the customer cards do not need every invoice. */
 export async function loadCustomerBalances(): Promise<Record<string, number>> {
   const { data, error } = await supabase!.rpc("customer_balances");

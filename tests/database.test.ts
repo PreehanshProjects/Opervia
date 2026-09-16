@@ -51,6 +51,7 @@ beforeAll(async () => {
     "202609160002_expense_details_and_grants.sql",
     "202609160003_delete_customer.sql",
     "202609160004_cash_book.sql",
+    "202609160005_ledger_search_and_totals.sql",
   ])
     await db.exec(
       readFileSync(
@@ -662,6 +663,41 @@ describe("server-side queries", () => {
     // And the default reading is untouched: no expenses in receivables.
     const account = await call("list_ledger", { limit: 500 });
     expect(account.rows.map((r) => r.type)).not.toContain("Expense");
+  });
+
+  it("searches the ledger and totals the whole match, not the page", async () => {
+    await asUser(userA);
+    const whole = await call("list_ledger", { customer_id: qCust, limit: 500 });
+    // Twelve invoices of 100, and whatever payments the cash-book test left.
+    const page1 = await call("list_ledger", { customer_id: qCust, limit: 3 });
+    expect(page1.rows).toHaveLength(3);
+    // The figures describe everything that matched, so they survive paging.
+    expect(page1.total).toBe(whole.total);
+    expect(Number(page1.debits)).toBe(Number(whole.debits));
+    expect(Number(page1.credits)).toBe(Number(whole.credits));
+    expect(Number(page1.closing)).toBe(Number(whole.closing));
+    expect(Number(whole.debits)).toBe(1200);
+
+    // Search matches the entry and the line beneath it.
+    const byName = await call("list_ledger", { search: "Query Customer" });
+    expect(byName.total).toBeGreaterThan(0);
+    expect(
+      await call("list_ledger", { search: "no-such-thing" }),
+    ).toMatchObject({ total: 0, closing: 0, debits: 0, credits: 0 });
+    // A searched set re-runs its own balance, exactly as a date range does.
+    const one = await call("list_ledger", {
+      customer_id: qCust,
+      search: (whole.rows[0].label as string).slice(0, 8),
+    });
+    expect(one.total).toBeLessThan(whole.total);
+    expect(Number(one.closing)).toBe(Number(one.debits) - Number(one.credits));
+    // The cash book searches the expense description behind the category.
+    const veg = await call("list_ledger", {
+      mode: "cash",
+      search: "Vegetables",
+    });
+    expect(veg.total).toBeGreaterThan(0);
+    expect(Number(veg.credits)).toBe(0);
   });
 
   it("never returns another account's records", async () => {

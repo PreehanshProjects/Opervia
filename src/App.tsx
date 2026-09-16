@@ -434,6 +434,28 @@ export default function App() {
       setError(errorText(e));
     }
   }
+  /**
+   * Every row the current filters match, gathered a page at a time.
+   *
+   * An export built from the rows on screen is a file that looks complete and
+   * is not — the same trap the server-side totals exist to avoid. The server
+   * caps a page at 500, so a long book is fetched in several passes.
+   */
+  async function allMatching<T>(
+    fetchPage: (
+      limit: number,
+      offset: number,
+      // Structural, not domain.Page: "Page" here is this file's nav-page union.
+    ) => Promise<{ rows: T[]; total: number }>,
+  ): Promise<T[]> {
+    const size = 500;
+    const rows: T[] = [];
+    for (let offset = 0; ; offset += size) {
+      const page = await fetchPage(size, offset);
+      rows.push(...page.rows);
+      if (!page.rows.length || rows.length >= page.total) return rows;
+    }
+  }
   async function removeExpense(expense: Expense) {
     const ok = await act(async () => {
       if (demo)
@@ -702,6 +724,7 @@ export default function App() {
     customer_id: (ledgerMode === "account" && ledgerCustomer) || undefined,
     from: from || undefined,
     to: to || undefined,
+    search: debouncedSearch || undefined,
     limit: LEDGER_PAGE,
     offset: ledgerOffset,
     mode: ledgerMode,
@@ -863,33 +886,41 @@ export default function App() {
                 <button
                   className="btn secondary"
                   onClick={() =>
-                    void exportCsv(
-                      ledgerMode === "cash"
-                        ? "opervia-cash-book.csv"
-                        : "opervia-ledger.csv",
-                      [
+                    void (async () => {
+                      const rows = await allMatching((limit, offset) => {
+                        const q = { ...ledgerQuery, limit, offset };
+                        return demo
+                          ? Promise.resolve(queryLedger(data, q))
+                          : api.listLedger(q);
+                      });
+                      await exportCsv(
+                        ledgerMode === "cash"
+                          ? "opervia-cash-book.csv"
+                          : "opervia-ledger.csv",
                         [
-                          "Date",
-                          "Reference",
-                          "Details",
-                          "Type",
-                          "Debit MUR",
-                          "Credit MUR",
-                          ledgerMode === "cash"
-                            ? "Net cash MUR"
-                            : "Balance MUR",
+                          [
+                            "Date",
+                            "Reference",
+                            "Details",
+                            "Type",
+                            "Debit MUR",
+                            "Credit MUR",
+                            ledgerMode === "cash"
+                              ? "Net cash MUR"
+                              : "Balance MUR",
+                          ],
+                          ...rows.map((r) => [
+                            r.date,
+                            r.label,
+                            r.detail,
+                            r.type,
+                            r.debit,
+                            r.credit,
+                            r.balance,
+                          ]),
                         ],
-                        ...(ledgerPage.data?.rows ?? []).map((r) => [
-                          r.date,
-                          r.label,
-                          r.detail,
-                          r.type,
-                          r.debit,
-                          r.credit,
-                          r.balance,
-                        ]),
-                      ],
-                    )
+                      );
+                    })()
                   }
                 >
                   <Download size={16} />
@@ -980,6 +1011,8 @@ export default function App() {
                     setFrom(f);
                     setTo(t);
                   }}
+                  search={search}
+                  setSearch={setSearch}
                   customers={data.customers}
                   ledgerCustomer={ledgerCustomer}
                   setLedgerCustomer={setLedgerCustomer}
@@ -1053,7 +1086,32 @@ export default function App() {
                     setModal("expense");
                     setError("");
                   }}
-                  onExport={(f, r) => void exportCsv(f, r)}
+                  onExport={() =>
+                    void (async () => {
+                      const rows = await allMatching((limit, offset) => {
+                        const q = { ...expenseQuery, limit, offset };
+                        return demo
+                          ? Promise.resolve(queryExpenses(data, q))
+                          : api.listExpenses(q);
+                      });
+                      await exportCsv("opervia-expenses.csv", [
+                        [
+                          "Date",
+                          "Description",
+                          "Details",
+                          "Category",
+                          "Amount MUR",
+                        ],
+                        ...rows.map((e) => [
+                          e.date,
+                          e.description,
+                          e.note ?? "",
+                          e.category,
+                          e.amount,
+                        ]),
+                      ]);
+                    })()
+                  }
                 />
               )}
               {page === "Settings" && (

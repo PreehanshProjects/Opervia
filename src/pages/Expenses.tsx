@@ -49,7 +49,8 @@ export default function Expenses({
   offset: number;
   setOffset: (n: number) => void;
   onOpen: (e: Expense) => void;
-  onExport: (filename: string, rows: unknown[][]) => void;
+  /** Gathers every matching expense itself; the page on screen is not the set. */
+  onExport: () => void;
 }) {
   const active =
     (category !== "All" ? 1 : 0) +
@@ -73,22 +74,7 @@ export default function Expenses({
             )}
           </p>
         </div>
-        <button
-          type="button"
-          className="btn secondary"
-          onClick={() =>
-            onExport("opervia-expenses.csv", [
-              ["Date", "Description", "Details", "Category", "Amount MUR"],
-              ...rows.map((e) => [
-                e.date,
-                e.description,
-                e.note ?? "",
-                e.category,
-                e.amount,
-              ]),
-            ])
-          }
-        >
+        <button type="button" className="btn secondary" onClick={onExport}>
           <Download size={15} />
           Export CSV
         </button>

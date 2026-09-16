@@ -460,10 +460,22 @@ export type LedgerQuery = {
   customer_id?: string;
   from?: string;
   to?: string;
+  /** Matches the entry and its second line: a number, a name, a description. */
+  search?: string;
   limit?: number;
   offset?: number;
   /** Defaults to the receivables ledger. See LedgerMode. */
   mode?: LedgerMode;
+};
+/**
+ * A page of the ledger, plus the three figures that describe the whole filtered
+ * set. They are totals of everything that matched, never of the rows on screen:
+ * a total of page one is wrong in a way that looks right.
+ */
+export type LedgerPage = Page<LedgerRow> & {
+  closing: number;
+  debits: number;
+  credits: number;
 };
 export type Page<T> = { rows: T[]; total: number };
 
@@ -537,20 +549,24 @@ export function queryExpenses(
 }
 
 /** The ledger, paged. The running balance is computed over the whole set first. */
-export function queryLedger(
-  data: Data,
-  q: LedgerQuery = {},
-): Page<LedgerRow> & { closing: number } {
+export function queryLedger(data: Data, q: LedgerQuery = {}): LedgerPage {
   const mode = q.mode ?? "account";
-  const all = ledger(data, q.customer_id ?? "", mode).filter((r) =>
-    inRange(r.date, q.from, q.to),
+  const needle = (q.search ?? "").trim().toLowerCase();
+  const all = ledger(data, q.customer_id ?? "", mode).filter(
+    (r) =>
+      inRange(r.date, q.from, q.to) &&
+      (!needle || `${r.label} ${r.detail}`.toLowerCase().includes(needle)),
   );
-  // Re-run the balance when a date range cut the earlier rows away, so the
-  // opening figure reflects what the filtered view actually shows.
-  const rows = q.from || q.to ? runBalance(all, mode) : all;
+  // Re-run the balance when a filter cut the earlier rows away, so the closing
+  // figure reflects what the filtered view actually shows.
+  const rows = q.from || q.to || needle ? runBalance(all, mode) : all;
+  const sum = (pick: (r: LedgerRow) => number) =>
+    roundMoney(rows.reduce((s, r) => s.plus(pick(r)), new Decimal(0)));
   return {
     ...slice(rows, q.limit ?? 50, q.offset),
     closing: rows.at(-1)?.balance ?? 0,
+    debits: sum((r) => r.debit),
+    credits: sum((r) => r.credit),
   };
 }
 

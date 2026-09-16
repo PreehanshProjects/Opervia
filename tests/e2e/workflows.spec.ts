@@ -2,6 +2,9 @@ import { test, expect } from "@playwright/test";
 test("customer, fractional invoice, settlement, ledger and print workflow", async ({
   page,
 }, testInfo) => {
+  // The longest workflow in the suite: settings, an invoice end to end, both
+  // ledger readings, two exports, the blank sheet and an expense.
+  test.setTimeout(90_000);
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(e.message));
   await page.goto("/");
@@ -131,12 +134,32 @@ test("customer, fractional invoice, settlement, ledger and print workflow", asyn
   const cashCsv = page.waitForEvent("download");
   await page.getByRole("button", { name: "Export CSV" }).click();
   expect((await cashCsv).suggestedFilename()).toBe("opervia-cash-book.csv");
+  // Search reaches the second line of an entry — "fuel" lives in the expense
+  // description, not in the category shown as the entry — and the figures
+  // narrow with it rather than describing the unfiltered book.
+  const figures = page.locator(".ledger-figures dd");
+  const entries = await figures.nth(2).innerText();
+  const moneyIn = await figures.nth(0).innerText();
+  expect(moneyIn).not.toBe("Rs 0.00");
+  await page
+    .getByRole("textbox", { name: "Search the cash book" })
+    .fill("fuel");
+  await expect(page.locator("tbody tr")).toHaveCount(1);
+  await expect(figures.nth(2)).toHaveText("1");
+  // Only an expense matched, so nothing came in over that set.
+  await expect(figures.nth(0)).toHaveText("Rs 0.00");
+  await page.getByRole("button", { name: "Clear filter", exact: true }).click();
+  await expect(figures.nth(2)).toHaveText(entries);
+  await expect(figures.nth(0)).toHaveText(moneyIn);
   // And back: the expense leaves again, and the customer filter returns.
   await page.getByRole("button", { name: "Customer account" }).click();
   await expect(page.getByText("Delivery fuel")).toHaveCount(0);
   await expect(
     page.getByRole("combobox", { name: "View customer" }),
   ).toBeVisible();
+  // The export toast sits over the mobile bottom nav for five seconds. Let it
+  // clear rather than racing it for the next tap.
+  await expect(page.locator(".toast")).toBeHidden({ timeout: 8000 });
   await nav("Invoices");
   await page.getByRole("button", { name: "Blank invoice" }).click();
   await expect(dialog.locator(".paper-table tbody tr")).toHaveCount(14);

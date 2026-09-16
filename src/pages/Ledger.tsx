@@ -7,9 +7,8 @@ import {
   money,
   type Customer,
   type LedgerMode,
-  type LedgerRow,
+  type LedgerPage,
   type OpeningBalance,
-  type Page,
   type Payment,
 } from "../domain";
 
@@ -27,6 +26,8 @@ export default function Ledger({
   from,
   to,
   setRange,
+  search,
+  setSearch,
   customers,
   ledgerCustomer,
   setLedgerCustomer,
@@ -37,8 +38,8 @@ export default function Ledger({
   busy,
   onRecordOpeningPayment,
 }: {
-  /** One page of entries, with the running balance spanning the whole set. */
-  page: (Page<LedgerRow> & { closing: number }) | null;
+  /** One page of entries, with every figure spanning the whole filtered set. */
+  page: LedgerPage | null;
   loading: boolean;
   limit: number;
   offset: number;
@@ -46,6 +47,8 @@ export default function Ledger({
   from: string;
   to: string;
   setRange: (from: string, to: string) => void;
+  search: string;
+  setSearch: (s: string) => void;
   customers: Customer[];
   ledgerCustomer: string;
   setLedgerCustomer: (id: string) => void;
@@ -58,6 +61,7 @@ export default function Ledger({
   onRecordOpeningPayment: (p: Payment) => Promise<boolean>;
 }) {
   const cash = mode === "cash";
+  const filtered = !!(search || from || to);
   return (
     <>
       <div className="ledger-modes tabs" role="group" aria-label="Ledger view">
@@ -82,6 +86,23 @@ export default function Ledger({
               ? "Payments received less expenses · this is not profit"
               : "Invoices less payments · expenses are in the cash book"}
           </p>
+          {/* The figures the filters imply. Credits are money in and debits
+              money out in both readings — only the names change. Totals of
+              everything that matched, so they hold while paging through it. */}
+          <dl className="ledger-figures">
+            <div>
+              <dt>{cash ? "Money in" : "Received"}</dt>
+              <dd className="green">{money(page?.credits ?? 0)}</dd>
+            </div>
+            <div>
+              <dt>{cash ? "Money out" : "Billed"}</dt>
+              <dd>{money(page?.debits ?? 0)}</dd>
+            </div>
+            <div>
+              <dt>{filtered ? "Entries matched" : "Entries"}</dt>
+              <dd>{page?.total ?? 0}</dd>
+            </div>
+          </dl>
         </div>
         {cash ? (
           /* Expenses are not bought per customer, so there is nothing to filter
@@ -122,14 +143,17 @@ export default function Ledger({
       )}
       <section className="panel">
         <FilterBar
-          search=""
-          setSearch={() => {}}
+          search={search}
+          setSearch={setSearch}
           searchLabel={cash ? "Search the cash book" : "Search the ledger"}
           from={from}
           to={to}
           setRange={setRange}
-          active={(from ? 1 : 0) + (to ? 1 : 0)}
-          onClear={() => setRange("", "")}
+          active={(search ? 1 : 0) + (from ? 1 : 0) + (to ? 1 : 0)}
+          onClear={() => {
+            setSearch("");
+            setRange("", "");
+          }}
         />
         {page?.rows.length ? (
           <div className={`table-scroll ${loading ? "list-loading" : ""}`}>
@@ -165,13 +189,21 @@ export default function Ledger({
           </div>
         ) : (
           <Empty
-            title={from || to ? "Nothing in this period" : "A clean page"}
+            title={
+              search
+                ? "Nothing matches that"
+                : from || to
+                  ? "Nothing in this period"
+                  : "A clean page"
+            }
             detail={
-              from || to
-                ? "Try a wider date range, or clear the dates to see everything."
-                : cash
-                  ? "Payments received and expenses recorded will appear here automatically."
-                  : "Invoices and payments will appear here automatically."
+              search
+                ? "Search looks at the entry and the line beneath it — a number, a name, a description."
+                : from || to
+                  ? "Try a wider date range, or clear the dates to see everything."
+                  : cash
+                    ? "Payments received and expenses recorded will appear here automatically."
+                    : "Invoices and payments will appear here automatically."
             }
           />
         )}
