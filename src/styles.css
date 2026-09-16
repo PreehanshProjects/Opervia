@@ -355,18 +355,35 @@ small {
   min-height: 100vh;
 }
 .sidebar {
+  --sidebar-pad: 22px;
   position: fixed;
   inset: 0 auto 0 0;
   width: 246px;
   background: var(--surface);
   border-right: 1px solid var(--border);
-  padding: 33px 22px 15px;
+  padding: 33px var(--sidebar-pad) 15px;
   display: flex;
   flex-direction: column;
   z-index: 30;
 }
 .sidebar .brand {
   margin-left: 8px;
+}
+/* The brand and the workspace footer are pinned to the panel; the nav between
+   them takes what height is left and scrolls. A laptop open at 700px tall has
+   less room than this column wants, and sign-out living in that footer is not
+   something the user should have to find. The negative margin lets the scroll
+   run to the panel's own edges, so the scrollbar sits against the border
+   rather than floating inside the padding. */
+.sidebar-scroll {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  margin: 0 calc(var(--sidebar-pad) * -1);
+  padding: 0 var(--sidebar-pad);
 }
 .workspace {
   display: flex;
@@ -1798,8 +1815,9 @@ nav button.active svg {
 }
 @media screen and (max-width: 1200px) {
   .sidebar {
+    --sidebar-pad: 17px;
     width: 215px;
-    padding: 28px 17px 15px;
+    padding: 28px var(--sidebar-pad) 15px;
   }
   .app-main {
     margin-left: 215px;

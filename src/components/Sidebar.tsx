@@ -29,41 +29,49 @@ export default function Sidebar({
       >
         <Brand />
       </a>
-      <div className="workspace">
-        <span className="workspace-avatar">{data.business.name.charAt(0)}</span>
-        <div>
-          <b>{data.business.name}</b>
-          <small>Business workspace</small>
+      {/* The brand above and the workspace row below are pinned; everything
+          between them scrolls. On a short laptop screen the six nav items plus
+          the note card run past the bottom of the viewport, and sign-out is not
+          something the user may have to go looking for. */}
+      <div className="sidebar-scroll">
+        <div className="workspace">
+          <span className="workspace-avatar">
+            {data.business.name.charAt(0)}
+          </span>
+          <div>
+            <b>{data.business.name}</b>
+            <small>Business workspace</small>
+          </div>
+          <span className="workspace-status" />
         </div>
-        <span className="workspace-status" />
-      </div>
-      <span className="nav-label">WORKSPACE</span>
-      <nav>
-        {nav.map((n) => (
-          <button
-            key={n.name}
-            type="button"
-            className={page === n.name ? "active" : ""}
-            aria-current={page === n.name ? "page" : undefined}
-            onClick={() => go(n.name)}
-          >
-            <n.icon size={19} />
-            {n.name}
-            {n.name === "Invoices" && (
-              <span className="nav-count">
-                {data.invoices.filter((i) => !i.voided).length}
-              </span>
-            )}
+        <span className="nav-label">WORKSPACE</span>
+        <nav>
+          {nav.map((n) => (
+            <button
+              key={n.name}
+              type="button"
+              className={page === n.name ? "active" : ""}
+              aria-current={page === n.name ? "page" : undefined}
+              onClick={() => go(n.name)}
+            >
+              <n.icon size={19} />
+              {n.name}
+              {n.name === "Invoices" && (
+                <span className="nav-count">
+                  {data.invoices.filter((i) => !i.voided).length}
+                </span>
+              )}
+            </button>
+          ))}
+        </nav>
+        <div className="sidebar-note">
+          <span className="note-symbol">✦</span>
+          <b>A little more clarity.</b>
+          <p>Keep your invoices, payments and everyday books in one place.</p>
+          <button type="button" onClick={() => go("Settings")}>
+            Make it yours <ArrowRight size={14} />
           </button>
-        ))}
-      </nav>
-      <div className="sidebar-note">
-        <span className="note-symbol">✦</span>
-        <b>A little more clarity.</b>
-        <p>Keep your invoices, payments and everyday books in one place.</p>
-        <button type="button" onClick={() => go("Settings")}>
-          Make it yours <ArrowRight size={14} />
-        </button>
+        </div>
       </div>
       <div className="sidebar-bottom">
         <ShieldCheck size={17} />
