@@ -2428,8 +2428,25 @@ nav button.active svg {
   .blank-paper .paper-table td:first-child {
     border-left: 1px solid #dce3d4;
   }
+  /* The blank sheet is the one document that genuinely fills its page:
+     fourteen ruled lines, and a business that has filled in a proprietor, a
+     BRN and bank details pushes the total past A4. So its foot is set tighter
+     than the completed invoice's, and — importantly — it does NOT set a
+     margin-top here. A fixed margin outranked the shared `margin-top: auto`
+     below on specificity, which both stranded the signatures mid-page and
+     added 40px the sheet had no room for, spilling the footer onto a second,
+     otherwise empty page. */
+  .blank-paper .paper-bottom {
+    margin-top: 18px;
+  }
+  /* Deliberately small: `margin-top: auto` opens the gap above the signatures
+     whenever the sheet has room to spare, so anything fixed here is height the
+     sheet pays for even when it cannot afford it. */
   .blank-paper .paper-signatures {
-    margin-top: 40px;
+    padding-top: 18px;
+  }
+  .blank-paper .paper-footer {
+    margin-top: 14px;
   }
   html,
   body,

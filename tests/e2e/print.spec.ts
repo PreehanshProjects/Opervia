@@ -1,4 +1,13 @@
 import { test, expect } from "@playwright/test";
+
+/**
+ * An invoice is one sheet of paper. The blank sheet is the tight one — fourteen
+ * ruled lines plus a fully filled-in business profile — and it used to spill its
+ * footer onto a second, otherwise empty page, so the page count is asserted.
+ */
+const pageCount = (pdf: Buffer) =>
+  (pdf.toString("latin1").match(/\/Type\s*\/Page[^s]/g) ?? []).length;
+
 test("A4 blank and completed invoices produce printable PDFs", async ({
   page,
 }, testInfo) => {
@@ -38,19 +47,21 @@ test("A4 blank and completed invoices produce printable PDFs", async ({
   await page
     .getByRole("button", { name: "Blank invoice", exact: true })
     .click();
-  await page.pdf({
+  const blank = await page.pdf({
     path: "tmp/pdfs/blank-invoice.pdf",
     format: "A4",
     preferCSSPageSize: true,
     printBackground: true,
   });
+  expect(pageCount(blank)).toBe(1);
   await page.getByRole("button", { name: "Close dialog" }).click();
   await page.getByRole("button", { name: "View OP-1001" }).click();
   await expect(page.locator(".paper-grand")).toContainText("1,365.00");
-  await page.pdf({
+  const completed = await page.pdf({
     path: "tmp/pdfs/completed-invoice.pdf",
     format: "A4",
     preferCSSPageSize: true,
     printBackground: true,
   });
+  expect(pageCount(completed)).toBe(1);
 });
