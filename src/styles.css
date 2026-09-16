@@ -2307,7 +2307,11 @@ nav button.active svg {
    must get the single-column layout, not the tablet one. */
 /* iOS Safari zooms the viewport when a focused field is under 16px. Phone entry
    is a primary flow here, so fields go to 16px on touch-sized screens. */
-@media (max-width: 760px) {
+/* `screen and` is load-bearing, not decoration: a bare width query also matches
+   when the PRINT layout is narrow, and the Android print path lays the page out
+   at the WebView's own phone width. Without it the sheet below was printed at
+   44% with a -629px bottom margin — a stamp in the corner of the paper. */
+@media screen and (max-width: 760px) {
   input,
   select,
   textarea {
@@ -2325,7 +2329,7 @@ nav button.active svg {
     margin-bottom: calc(-1123px * (1 - var(--paper-scale, 0.52)));
   }
 }
-@media (max-width: 420px) {
+@media screen and (max-width: 420px) {
   .invoice-paper {
     --paper-scale: 0.44;
   }
@@ -2504,6 +2508,10 @@ nav button.active svg {
     width: 100%;
     min-width: 0;
     max-width: none;
+    /* Paper is never scaled or pulled about, whatever the screen rules above
+       decided the preview should do to fit a phone. */
+    transform: none;
+    margin-bottom: 0;
     /* Fill the sheet, so a short invoice does not leave its signature lines
        stranded halfway down the page with blank paper beneath them. */
     min-height: 100vh;
